@@ -13,42 +13,47 @@
 #include "region.hpp"
 
 
-struct AntSettings
+struct AgentType
 {
-    int capacity;
-    std::vector<sf::Color> allColors;
-    int tileSize;
     int walkingSpeed;
     int diggingSpeed;
+    int strength;
+    std::string texture;
+    int profileIndex;
+};
+
+struct AgentSettings
+{
+    std::vector<AgentType> agentTypes;
+    std::vector<sf::Color> allColors; // allegiance colors
+    int tileSize;
 };
 
 enum ActionType {wait, move, dig, attack};
 
+// TODO: this doesn't require a struct
 struct Action
 {
     ActionType type;
     int direction;
 };
-
-enum AntType {worker, soldier};
     
-class Ant
+class Agent
 {
     private:
-    std::shared_ptr<AntSettings> m_aSetts;
+    std::shared_ptr<AgentSettings> m_aSetts;
+    std::shared_ptr<Region> m_world;
     std::string m_name;
     int m_allegiance;
-    std::shared_ptr<Region> m_world;
-    AntType m_type;
+    int m_type;
     sf::Vector2i m_coords;
-    std::vector<sf::Vector2i> m_mask;
     int m_direction;
+    std::vector<sf::Vector2i> m_mask;
     sf::Vector2f m_position;
     sf::Sprite m_representation;
     std::vector<sf::Vertex> m_pathRepres;
 
-    int m_storageLeft;
-    std::vector<int> m_storage;
+    int m_cargo; // -1 is nothing
     ActionType m_currAction;
     int m_actionProgress;
 
@@ -61,11 +66,11 @@ class Ant
 
     bool dig();
 
-    std::vector<int> unload();
+    int unload();
     
     public:
-    Ant(std::shared_ptr<AntSettings>& aSetts, std::shared_ptr<Region>& world,
-	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, AntType type,
+    Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& world,
+	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, int type,
 	sf::Vector2i coords);
 
     bool moveTo(sf::Vector2i target, bool dig);
@@ -75,5 +80,5 @@ class Ant
     void draw(sf::RenderTarget& target);
 
 
-    const AntType& getType() {return m_type; }
+    const int& getType() {return m_type; }
 };

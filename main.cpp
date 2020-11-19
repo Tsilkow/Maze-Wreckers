@@ -13,7 +13,7 @@
 #include "commons.hpp"
 #include "resources.hpp"
 #include "region.hpp"
-#include "ant.hpp"
+#include "agent.hpp"
 #include "simulation.hpp"
 
 
@@ -23,43 +23,48 @@ int main()
 {
     srand(time(NULL));
 
+    TileType open    = {true , false, false, sf::Color(  0,   0,   0), 0};
+    TileType wall    = {false, true , false, sf::Color(  0,   0, 128), 1};
+    TileType nest    = {true , false, false, sf::Color(255, 255, 255), 2};
+    TileType terrace = {true , false, true , sf::Color(  0, 255, 255), 3};
+
     RegionSettings rSetts =
     {
-	sf::Vector2f(50, 50), // dimensions
-	16,                   // tileSize
-	16,                   // texTileSize
-	128,                  // colorPerTile
-	4,                    // nestTotal
-	1000,                  // genCenTotal
-	10,                   // genCenReach
-	{3, 3, 3},            // colorGenWghts
-	{1, 0, 1},            // walkable
-	{0, 1, 0},           // diggable
-	{                     // agentProfiles
-	    {1, 16, 0},       // agentNoDigging
-	    {1, 16, 64},       // agentNormal
-	    {1, 24, 32}       // agentHeavy
+	sf::Vector2f(50, 50),        // dimensions
+	16,                          // tileSize
+	16,                          // texTileSize
+	4,                           // nestTotal
+	{                            // tileTypes
+	    {0, open},
+	    {1, wall},
+	    {10, nest},
+	    {2, terrace}}, 
+	{                            // agentProfiles
+	    {1, 16, 0},              // agentNoDigging
+	    {1, 16, 64},             // agentNormal
+	    {1, 24, 32}              // agentHeavy
 	}
     };
     shared_ptr<RegionSettings> shr_rSetts = make_shared<RegionSettings>(rSetts);
 
     // TODO: digging/walking ratio must be constant, in order to be able to calculate univesral abstract distances
-    AntSettings aSetts =
+    AgentType digger  = {16, 64,  0, "worker", 1};
+    AgentType warrior = {16,  0, 10, "soldier", 0};
+    
+    AgentSettings aSetts =
     {
-	128,
-	{sf::Color(255, 255, 255)},
-	16,
-	16,
-	64
+	{warrior, digger},          // agentTypes
+	{sf::Color(255, 255, 255)}, // allColors
+	rSetts.tileSize             // tileSize
     };
-    shared_ptr<AntSettings> shr_aSetts = make_shared<AntSettings>(aSetts);
+    shared_ptr<AgentSettings> shr_aSetts = make_shared<AgentSettings>(aSetts);
 
     ResourceHolder<sf::Texture, std::string> textures;
     textures.load("tileset", "data/tileset.png");
     textures.load("worker", "data/worker.png");
     textures.load("soldier", "data/soldier.png");
 
-    sf::RenderWindow window(sf::VideoMode(850, 800), "Color Quarry");
+    sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");
     window.setFramerateLimit(60);
     
     sf::View actionView(sf::Vector2f(425.f, 400.f), sf::Vector2f(850, 800));

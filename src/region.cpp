@@ -53,6 +53,7 @@ bool PathHeuresticComparator::operator() (const PathCoord& a, const PathCoord& b
     return (a.h < b.h);
 };
 
+// TODO: remove because archaic
 std::vector<int> spreadEvenly(int toGet, int r, int g, int b)
 {
     std::vector<int> result(3, 0);
@@ -127,160 +128,34 @@ Region::Region(std::shared_ptr<RegionSettings>& rSetts,
 		{(float)(x+1) * m_rSetts->tileSize, (float)(y+1) * m_rSetts->tileSize},
 		{(float) x    * m_rSetts->tileSize, (float)(y+1) * m_rSetts->tileSize}
 	    };
-	    int type = atCoords(m_data, sf::Vector2i(x, y)).type;
+	    int type = m_data[x][y];
 	    std::vector<sf::Vector2f> texCoords = {
-		{(float) type    * m_rSetts->texTileSize, 0.f},
-		{(float)(type+1) * m_rSetts->texTileSize, 0.f},
-		{(float)(type+1) * m_rSetts->texTileSize, (float)m_rSetts->texTileSize},
-		{(float) type    * m_rSetts->texTileSize, (float)m_rSetts->texTileSize}
+		{(float) m_rSetts->tileTypes[type].textureIndex * m_rSetts->texTileSize, 0.f},
+		{(float)(m_rSetts->tileTypes[type].textureIndex+1) * m_rSetts->texTileSize, 0.f},
+		{(float)(m_rSetts->tileTypes[type].textureIndex+1) * m_rSetts->texTileSize,
+		 (float)m_rSetts->texTileSize},
+		{(float) m_rSetts->tileTypes[type].textureIndex    * m_rSetts->texTileSize,
+		 (float)m_rSetts->texTileSize}
 	    };
 
 	    for(int i = 0; i < 4; ++i)
 	    {
-		m_representation.emplace_back(position[i], getTileColor(x, y), texCoords[i]);
+		m_representation.emplace_back(position[i], m_rSetts->tileTypes[type].normColor, texCoords[i]);
 	    }
 	}
     }
-}
-
-sf::Color Region::getTileColor(sf::Vector2i coords)
-{
-    sf::Color result(0, 0, 0);
-    
-    switch(atCoords(m_data, coords).type)
-    {
-	case 0:
-	    result.r = 0;
-	    result.g = 0;
-	    result.b = 0;
-	    break;
-	    
-	case 1:
-	    result.r = std::round(255.f * atCoords(m_data, coords).r/m_rSetts->colorPerTile);
-	    result.g = std::round(255.f * atCoords(m_data, coords).g/m_rSetts->colorPerTile);
-	    result.b = std::round(255.f * atCoords(m_data, coords).b/m_rSetts->colorPerTile);
-	    break;
-	    
-	case 2: 
-	    result.r = 255;
-	    result.g = 255;
-	    result.b = 255;
-	    break;
-    }
-    
-    return result;
 }
 
 void Region::generate()
 {
     std::vector<std::map<sf::Vector2i, int, Vector2iComparator>>
 	temp(m_rSetts->agentProfiles.size(), std::map<sf::Vector2i, int, Vector2iComparator>());
-    m_data = std::vector< std::vector<Tile> >(m_rSetts->dimensions.x,
-					      std::vector<Tile>(m_rSetts->dimensions.y,
-								{TileType::wall, 1, 1, 1, temp}));
-    std::map<sf::Vector2i, int, Vector2iComparator> genCenters;
-
-    // stone centers generation
-    for(int i = 0; i < m_rSetts->genCenTotal; ++i)
-    {
-	sf::Vector2i coords;
-
-	do{
-	    coords.x = randomI(0, m_rSetts->dimensions.x - 1);
-	    coords.y = randomI(0, m_rSetts->dimensions.y - 1);
-	}while(genCenters.find(coords) != genCenters.end());
-
-	genCenters.insert(std::make_pair(coords, randomIWeights(m_rSetts->colorGenWghts)));
-    }
-
-    // stone generation
-    /*for(int x = 0; x < m_rSetts->dimensions.x; ++x)
-    {
-	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
-	{
-	    sf::Vector2i coords(x, y);
-	    int closestColor = 0;
-	    int smallestDistance = distance(coords - genCenters.begin()->first);
-	    
-	    for(auto it = genCenters.begin(); it != genCenters.end(); ++it)
-	    {
-		int tempDist = distance(coords - it->first);
-		if(tempDist < smallestDistance)
-		{
-		    closestColor = it->second;
-		    smallestDistance = tempDist;
-		}
-	    }
-
-	    switch(closestColor)
-	    {
-		case 0: atCoords(m_data, sf::Vector2i(x, y)).r = m_rSetts->colorPerTile; break;
-		case 1: atCoords(m_data, sf::Vector2i(x, y)).g = m_rSetts->colorPerTile; break;
-		case 2: atCoords(m_data, sf::Vector2i(x, y)).b = m_rSetts->colorPerTile; break;
-	    }
-	}
-    }*/
-
-    // marking generation centers' reaches
-    for(auto it = genCenters.begin(); it != genCenters.end(); ++it)
-    {
-	sf::Vector2i coords(it->first);
-	for(int r = 0; r < m_rSetts->genCenReach; ++r)
-	{
-	    if(r == 0)
-	    {
-		if(inBounds(coords))
-		{
-		    switch(it->second)
-		    {
-			case 0: atCoords(m_data, coords).r += m_rSetts->genCenReach-r; break;
-			case 1: atCoords(m_data, coords).g += m_rSetts->genCenReach-r; break;
-			case 2: atCoords(m_data, coords).b += m_rSetts->genCenReach-r; break;
-		    }
-		}
-	    }
-	    else
-	    {
-		for(int i = 0; i < 4; ++i)
-		{
-		    for(int j = 0; j < r; ++j)
-		    {
-			if(inBounds(coords))
-			{   
-			    switch(it->second)
-			    {
-				case 0: atCoords(m_data, coords).r += m_rSetts->genCenReach-r; break;
-				case 1: atCoords(m_data, coords).g += m_rSetts->genCenReach-r; break;
-				case 2: atCoords(m_data, coords).b += m_rSetts->genCenReach-r; break;
-			    }
-			}
-			coords += getMove(i-3) + getMove(i-2);
-		    }
-		}
-	    }
-	    coords += getMove(0);
-	}
-    }
-
-    // processing generation centers weights
-    for(int x = 0; x < m_rSetts->dimensions.x; ++x)
-    {
-	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
-	{
-	    std::vector<int> temp = spreadEvenly(m_rSetts->colorPerTile,
-						 m_data[x][y].r, m_data[x][y].g, m_data[x][y].b);
-	    
-	    m_data[x][y].r = temp[0];
-	    m_data[x][y].g = temp[1];
-	    m_data[x][y].b = temp[2];
-
-	    std::cout << "(" << m_data[x][y].r << " " << m_data[x][y].g << " " << m_data[x][y].b << ")\n";
-	}
-    }
+    m_data = std::vector< std::vector<int> >(m_rSetts->dimensions.x,
+					     std::vector<int>(m_rSetts->dimensions.y, 1));
     
     // nest generation
-    m_nests = std::vector< std::vector<sf::Vector2i> >(m_rSetts->nestTotal, std::vector<sf::Vector2i>());
-    //m_nestDomains.emplace_back(std::map<sf::Vector2i, int, Vector2iComparator>());
+    // TODO: inflexible amount of sides having nests
+    m_nests = std::vector< std::vector<sf::Vector2i> >(2, std::vector<sf::Vector2i>());
     for(int i = 0; i < m_rSetts->nestTotal; ++i)
     {
 	sf::Vector2f temp = alongSquare((float)i / m_rSetts->nestTotal);
@@ -291,7 +166,7 @@ void Region::generate()
 
 	printVector(temp, true);
 	
-	atCoords(m_data, nestCoords).type = TileType::nest;
+	atCoords(m_data, nestCoords) = 10;
 	m_nests[0].emplace_back(nestCoords);
 	m_targets.emplace_back(m_nests[0].back());
 	//m_nestDomains[0].insert({nestCoords, i});
@@ -307,10 +182,10 @@ void Region::generate()
     {
 	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
 	{
-	    if(m_data[x][y].type == TileType::wall)
+	    /*if(m_data[x][y] == 1) // is a wall
 	    {
-		m_reservations.insert({{x, y, 0, -1}, m_rSetts->colorPerTile});
-	    }
+		m_reservations.insert(Reservation({x, y, 0, -1}));
+		}*/
 	}
     }
     
@@ -321,17 +196,20 @@ void Region::update()
     for(int i = 0; i < m_toUpdate.size(); ++i)
     {
 	int index = (m_toUpdate[i].x * m_rSetts->dimensions.y + m_toUpdate[i].y) * 4;
-	int type = atCoords(m_data, m_toUpdate[i]).type;
+	int type = atCoords(m_data, m_toUpdate[i]);
+	
 	std::vector<sf::Vector2f> texCoords = {
-	    {(float) type    * m_rSetts->tileSize, 0.f},
-	    {(float)(type+1) * m_rSetts->tileSize, 0.f},
-	    {(float)(type+1) * m_rSetts->tileSize, (float)m_rSetts->tileSize},
-	    {(float) type    * m_rSetts->tileSize, (float)m_rSetts->tileSize}
+	    {(float) m_rSetts->tileTypes[type].textureIndex    * m_rSetts->texTileSize, 0.f},
+	    {(float)(m_rSetts->tileTypes[type].textureIndex+1) * m_rSetts->texTileSize, 0.f},
+	    {(float)(m_rSetts->tileTypes[type].textureIndex+1) * m_rSetts->texTileSize,
+	     (float)m_rSetts->texTileSize},
+	    {(float) m_rSetts->tileTypes[type].textureIndex    * m_rSetts->texTileSize,
+	     (float)m_rSetts->texTileSize}
 	};
 		
 	for(int j = 0; j < 4; ++j)
 	{
-	    m_representation[index + j].color = getTileColor(m_toUpdate[i]);
+	    m_representation[index + j].color = m_rSetts->tileTypes[type].normColor;
 	    m_representation[index + j].texCoords = texCoords[j];
 	}
     }
@@ -342,6 +220,7 @@ void Region::update()
 // -1 means reserved by another agent or undiggable obstacle
 // 0 means free
 // x, where x is positive means diggable obstacle
+/*
 int Region::isReserved(int x, int y, int from, int duration)
 {
     int toDig = 0;
@@ -382,8 +261,18 @@ void Region::reserve(sf::Vector2i coords, int from, int duration)
     m_toCleanAt.insert({to, temp});
 }
 
+void Region::dereserve(sf::Vector2i coords, int freeAt)
+{
+    Reservation oldR = {coords.x, coords.y, 0, -1};
+    Reservation newR = {coords.x, coords.y, 0, freeAt};
+    m_reservations.erase(oldR);
+    m_reservations[newR] = 
+    m_reservations[temp];
+}
+*/
 void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 {
+    /*
     std::set<PathCoord, PathHeuresticComparator> toVisit;
     int startingValue;
     bool nogo = false;
@@ -466,63 +355,24 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    toVisit.clear();
 	}
     }
+    */
 }
 
-std::vector<int> Region::digOut(sf::Vector2i coords, int amount)
+bool Region::digOut(sf::Vector2i coords)
 {
-    std::vector<int> result = {0, 0, 0};
-    
     if(isDiggable(coords))
     {
-	int r = atCoords(m_data, coords).r;
-	int g = atCoords(m_data, coords).g;
-	int b = atCoords(m_data, coords).b;
-	int total = r + g + b;
-	amount = std::max(amount, total);
-
-	result[0] = amount * r / total;
-	result[1] = amount * g / total;
-	result[2] = amount * b / total;
-	amount -= result[0] + result[1] + result[2];
-
-	while(amount > 0)
+	atCoords(m_data, coords) = 0;
+	m_toUpdate.push_back(coords);
+	for(int i = 0; i < m_targets.size(); ++i)
 	{
-	    if(((float)r - result[0])/total >= ((float)g - result[1])/total)
-	    {
-		if(((float)r - result[0])/total >= ((float)b - result[2])/total) ++result[0];
-		else ++result[2];
-	    }
-	    else if(((float)g - result[1])/total >= ((float)b - result[2])/total) ++result[1];
-	    else ++result[2];
-	    
-	    --amount;
+	    calcNaiveDistance(m_targets[i], coords);
 	}
-
-	atCoords(m_data, coords).r -= result[0];
-	atCoords(m_data, coords).g -= result[1];
-	atCoords(m_data, coords).b -= result[2];
-
-	if(atCoords(m_data, coords).r + atCoords(m_data, coords).g + atCoords(m_data, coords).b == 0)
-	{
-	    //printVector(coords, true);
-	    atCoords(m_data, coords).type = TileType::open;
-	    m_toUpdate.push_back(coords);
-
-	    for(int i = 0; i < m_targets.size(); ++i)
-	    {
-		calcNaiveDistance(m_targets[i], coords);
-	    }
-	}
+	return true;
     }
-
-    return result;
+    return false;
 }
-
-int Region::evalByHeurestic(PathCoord path, sf::Vector2i target)
-{
-    return (distance(path.coords() - target) * 256 + path.t);
-}
-
+/*
 std::vector<int> Region::getPath(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex,
 				 int diggingCapabilities)
 {
@@ -566,10 +416,12 @@ std::vector<int> Region::getPath(sf::Vector2i start, int time, sf::Vector2i targ
 	}
     }
 }
-
+*/
 std::vector<int> Region::findPath
-(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex, int ableToDig)
+(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
 {
+    return {4};
+    /*
     if(time == -1) time = m_ticks;
     int timeOfArrival;
     std::vector<int> finalPath;
@@ -715,6 +567,7 @@ std::vector<int> Region::findPath
     }
 
     return finalPath;
+    */
 }
 
 /*
@@ -778,15 +631,17 @@ bool Region::inBounds(sf::Vector2i coords)
     return true;
 }
 
-sf::Vector2i Region::getNestAt(int allegiance, sf::Vector2i coords, int profileIndex)
+sf::Vector2i Region::getClosestNest(int allegiance, sf::Vector2i coords, int profileIndex)
 {
     sf::Vector2i result(-1, -1);
     int minDistance = -1;
+
+    return result;
     
     for(int i = 0; i < m_nests[allegiance].size(); ++i)
     {
-	auto found = atCoords(m_data, coords).naiveDistance[profileIndex].find(m_nests[allegiance][i]);
-	if(found != atCoords(m_data, coords).naiveDistance[profileIndex].end() &&
+	auto found = atCoords(m_naiveDistance[profileIndex], coords).find(m_nests[allegiance][i]);
+	if(found != atCoords(m_naiveDistance[profileIndex], coords).end() &&
 	   (minDistance == -1 || minDistance > found->second))
 	{
 	    result = m_nests[allegiance][i];
@@ -799,7 +654,7 @@ sf::Vector2i Region::getNestAt(int allegiance, sf::Vector2i coords, int profileI
 
 bool Region::isWalkable(sf::Vector2i coords)
 {
-    if(inBounds(coords) && m_rSetts->walkable[atCoords(m_data, coords).type] == 1)
+    if(inBounds(coords) && m_rSetts->tileTypes[atCoords(m_data, coords)].isWalkable)
     {
 	return true;
     }
@@ -808,7 +663,16 @@ bool Region::isWalkable(sf::Vector2i coords)
 
 bool Region::isDiggable(sf::Vector2i coords)
 {
-    if(inBounds(coords) && m_rSetts->diggable[atCoords(m_data, coords).type] == 1)
+    if(inBounds(coords) && m_rSetts->tileTypes[atCoords(m_data, coords)].isDiggable)
+    {
+	return true;
+    }
+    return false;
+}
+
+bool Region::isYankable(sf::Vector2i coords)
+{
+    if(inBounds(coords) && m_rSetts->tileTypes[atCoords(m_data, coords)].isYankable)
     {
 	return true;
     }

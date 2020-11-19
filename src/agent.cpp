@@ -1,8 +1,8 @@
-#include "ant.hpp"
+#include "agent.hpp"
 
 
-Ant::Ant(std::shared_ptr<AntSettings>& aSetts, std::shared_ptr<Region>& world,
-	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, AntType type,
+Agent::Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& world,
+	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, int type,
 	sf::Vector2i coords):
     m_aSetts(aSetts),
     m_world(world),
@@ -11,18 +11,13 @@ Ant::Ant(std::shared_ptr<AntSettings>& aSetts, std::shared_ptr<Region>& world,
     m_type(type),
     m_coords(coords),
     m_direction(0),
-    m_storage(3, 0),
+    m_cargo(-1),
     m_currAction(ActionType::wait),
     m_actionProgress(0)
 {
-    m_storageLeft = m_aSetts->capacity;
     m_mask.push_back(m_coords);
+    m_representation.setTexture(textures.get(m_aSetts->agentTypes[m_type].texture));
     
-    switch(m_type)
-    {
-	case worker: m_representation.setTexture(textures.get("worker")); break;
-	case soldier: m_representation.setTexture(textures.get("soldier")); break;
-    }
     sf::Vector2f size = sf::Vector2f(m_representation.getTexture()->getSize());
     m_representation.setOrigin(size * 0.5f);
     m_representation.setColor(m_aSetts->allColors[m_allegiance]);
@@ -31,20 +26,21 @@ Ant::Ant(std::shared_ptr<AntSettings>& aSetts, std::shared_ptr<Region>& world,
     m_representation.setPosition(m_position);
 }
 
-bool Ant::attack()
+bool Agent::attack()
 {
     return true;
 }
 
-bool Ant::move()
+bool Agent::move()
 {
     ++m_actionProgress;
 
     m_position = m_position + sf::Vector2f(getMove(m_direction) *
-					   (int)std::round((float)m_aSetts->tileSize / m_aSetts->walkingSpeed));
+					   (int)std::round((float)m_aSetts->tileSize /
+							   m_aSetts->agentTypes[m_type].walkingSpeed));
     m_representation.setPosition(m_position);
     
-    if(m_actionProgress >= m_aSetts->walkingSpeed)
+    if(m_actionProgress >= m_aSetts->agentTypes[m_type].walkingSpeed)
     {
 	m_coords += getMove(m_direction);
 	m_position = (sf::Vector2f(m_coords) + sf::Vector2f(0.5f, 0.5f)) * (float)m_aSetts->tileSize;
@@ -59,7 +55,7 @@ bool Ant::move()
     return false;
 }
 
-bool Ant::dig()
+bool Agent::dig()
 {
     ++m_actionProgress;
 
@@ -69,43 +65,24 @@ bool Ant::dig()
     }
     else m_representation.setPosition(m_position);
     
-    if(m_actionProgress >= m_aSetts->diggingSpeed)
+    if(m_actionProgress >= m_aSetts->agentTypes[m_type].diggingSpeed)
     {
-	std::vector<int> load = m_world->digOut(m_coords + getMove(m_direction), m_storageLeft);
-	int amount = load[0] + load[1] + load[2];
-
-	for(int i = 0; i < 3; ++i)
-	{
-	    m_storage[i] += load[i];
-	}
-	m_storageLeft -= amount;
-	m_actionProgress = 0;
-	return true;
+	return m_world->digOut(m_coords + getMove(m_direction));
     }
     
     return false;
 }
 
-std::vector<int> Ant::unload()
+int Agent::unload()
 {
-    std::vector<int> result = {0, 0, 0};
-    
-    if(m_world->getTile(m_coords).type == 2)
-    {
-	result = m_storage;
-	m_storage = {0, 0, 0};
-	m_storageLeft = m_aSetts->capacity;
-    }
-    return result;
+    int temp = m_cargo;
+    m_cargo = -1;
+    return temp;
 }
 
-bool Ant::moveTo(sf::Vector2i target, bool dig)
+bool Agent::moveTo(sf::Vector2i target, bool dig)
 {
-    int toDig = m_storageLeft;
-    if(dig) toDig = 0;
-
-    std::vector<int> temp = m_world->findPath(m_coords, -1, target, m_aSetts->walkingSpeed,
-					      m_aSetts->diggingSpeed, toDig);
+    std::vector<int> temp = m_world->findPath(m_coords, -1, target, m_aSetts->agentTypes[m_type].profileIndex);
 
     if(temp.size() > 0)
     {
@@ -115,7 +92,7 @@ bool Ant::moveTo(sf::Vector2i target, bool dig)
     return false;
 }
 
-bool Ant::tick()
+bool Agent::tick()
 {
     /*
     std::cout << "{ ";
@@ -126,9 +103,10 @@ bool Ant::tick()
     std::cout << "} \n";
     */
     
-    sf::Vector2i nest = m_world->getNestAt(m_allegiance, m_coords, 0);
+    sf::Vector2i nest = m_world->getClosestNest(m_allegiance, m_coords,
+						m_aSetts->agentTypes[m_type].profileIndex);
 
-    // if ant is in a nest, unload
+    // if agent is in a nest, unload
     if(m_coords == nest)
     {
 	unload();
@@ -144,21 +122,6 @@ bool Ant::tick()
 	    {
 		std::cout << "lost destination\n";
 		m_destination = m_coords;
-	    }
-	}
-
-	// if you have to dig, but you have no storage, look for a way to the closest nest
-	if(m_path.size() > 0)
-	{
-	    if(m_world->isDiggable(m_coords + getMove(m_path[0])) && m_storageLeft == 0)
-	    {
-		// TODO: compare heurestic to all alligned nests
-		if(nest == sf::Vector2i(-1, -1) || !moveTo(nest, false))
-		{
-		    m_currAction = ActionType::wait;
-		    m_destination = m_coords;
-		    m_path.clear();
-		}
 	    }
 	}
 
@@ -218,7 +181,7 @@ bool Ant::tick()
     return true;
 }
 
-void Ant::draw(sf::RenderTarget& target)
+void Agent::draw(sf::RenderTarget& target)
 {
     target.draw(m_representation);
     target.draw(&m_pathRepres[0], m_pathRepres.size(), sf::LineStrip);
