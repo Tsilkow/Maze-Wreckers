@@ -148,10 +148,13 @@ Region::Region(std::shared_ptr<RegionSettings>& rSetts,
 
 void Region::generate()
 {
-    std::vector<std::map<sf::Vector2i, int, Vector2iComparator>>
-	temp(m_rSetts->agentProfiles.size(), std::map<sf::Vector2i, int, Vector2iComparator>());
     m_data = std::vector< std::vector<int> >(m_rSetts->dimensions.x,
 					     std::vector<int>(m_rSetts->dimensions.y, 1));
+    m_naiveDistance = std::vector< std::vector< std::vector < std::map<sf::Vector2i, int, Vector2iComparator > > > >
+	(m_rSetts->agentProfiles.size(), std::vector< std::vector< std::map<sf::Vector2i, int, Vector2iComparator> > >
+	 (m_rSetts->dimensions.x, std::vector< std::map<sf::Vector2i, int, Vector2iComparator> >
+	  (m_rSetts->dimensions.y)));
+										       
     
     // nest generation
     // TODO: inflexible amount of sides having nests
@@ -272,13 +275,13 @@ void Region::dereserve(sf::Vector2i coords, int freeAt)
 */
 void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 {
-    /*
     std::set<PathCoord, PathHeuresticComparator> toVisit;
     int startingValue;
     bool nogo = false;
 
     for(int i = 0; i < m_rSetts->agentProfiles.size(); ++i)
     {
+	// if default argument is used, start from target itself
 	if(startAt == sf::Vector2i(-1, -1))
 	{
 	    startAt = from;
@@ -286,15 +289,16 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	}
 	else
 	{
+	    // otherwise search for neighbour with best heurestic score and start with them
 	    int min = -1;
 	    int minValue = -1;
 	    for(int j = 0; j < getMoveTotal(); ++j)
 	    {
 		sf::Vector2i temp = startAt + getMove(j);
-		auto found = atCoords(m_data, temp).naiveDistance[i].find(temp);
+		auto found = atCoords(m_naiveDistance[i], temp).find(from);
 		
 		if(inBounds(temp) &&
-		   found != atCoords(m_data, temp).naiveDistance[i].end() &&
+		   found != atCoords(m_naiveDistance[i], temp).end() &&
 		   (minValue == -1 || minValue > found->second))
 		{
 		    min = j;
@@ -306,7 +310,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    if(!nogo)
 	    {
 		startAt = startAt + getMove(min);
-		startingValue = atCoords(m_data, startAt).naiveDistance[i].find(from)->second;
+		startingValue = atCoords(m_naiveDistance[i], startAt).find(from)->second;
 	    }
 	}
 	if(!nogo)
@@ -315,7 +319,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    std::cout << startingValue << std::endl;
 
 	    toVisit.insert(PathCoord(startAt, 0, 0, startingValue));
-	    atCoords(m_data, startAt).naiveDistance[i][from] = startingValue;
+	    atCoords(m_naiveDistance[i], startAt)[from] = startingValue;
 	    while(toVisit.size() > 0)
 	    {
 		PathCoord curr = *toVisit.begin();
@@ -330,7 +334,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 
 		    if(inBounds(temp.coords()))
 		    {
-			auto found = atCoords(m_data, temp.coords()).naiveDistance[i].find(from);
+			auto found = atCoords(m_naiveDistance[i], temp.coords()).find(from);
 			
 			if(isDiggable(temp.coords()) && m_rSetts->agentProfiles[i].digging != 0)
 			{
@@ -341,12 +345,12 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 			    temp.h += m_rSetts->agentProfiles[i].walking;
 			}
 		    
-			if(found == atCoords(m_data, temp.coords()).naiveDistance[i].end() ||
+			if(found == atCoords(m_naiveDistance[i], temp.coords()).end() ||
 			   found->second > temp.h)
 			{
-			    std::cout << (found == atCoords(m_data, temp.coords()).naiveDistance[i].end())
+			    std::cout << (found == atCoords(m_naiveDistance[i], temp.coords()).end())
 				      << std::endl;
-			    atCoords(m_data, temp.coords()).naiveDistance[i][from] = temp.h;
+			    atCoords(m_naiveDistance[i], temp.coords())[from] = temp.h;
 			    toVisit.insert(temp);
 			}
 		    }
@@ -355,7 +359,6 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    toVisit.clear();
 	}
     }
-    */
 }
 
 bool Region::digOut(sf::Vector2i coords)
