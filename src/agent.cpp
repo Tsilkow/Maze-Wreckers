@@ -67,6 +67,7 @@ bool Agent::dig()
     
     if(m_actionProgress >= m_aSetts->agentTypes[m_type].diggingSpeed)
     {
+	m_actionProgress = 0;
 	return m_world->digOut(m_coords + getMove(m_direction));
     }
     
@@ -94,6 +95,7 @@ bool Agent::moveTo(sf::Vector2i target, bool dig)
 
 bool Agent::tick()
 {
+    //std::cout << m_actionProgress << std::endl;
     /*
     std::cout << "{ ";
     for(int i = 0; i < m_path.size(); ++i)
@@ -154,7 +156,11 @@ bool Agent::tick()
 		    m_currAction = ActionType::move;
 		    m_path.erase(m_path.begin());
 		}
-		else if(m_world->isDiggable(m_coords + getMove(m_direction))) m_currAction = ActionType::dig;
+		else if(m_aSetts->agentTypes[m_type].diggingSpeed != -1 &&
+			m_world->isDiggable(m_coords + getMove(m_direction)))
+		{
+		    m_currAction = ActionType::dig;
+		}
 		else // if you can't, discard the path (attempt to find a new way will be in the next tick)
 		{
 		    m_currAction = ActionType::wait;

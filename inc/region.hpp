@@ -41,6 +41,7 @@ struct RegionSettings
     // 2 is flower
     // 10 is nest
     std::vector<AgentProfile> agentProfiles;
+    int pathWindowSize;
 };
 
 struct Vector2iComparator
@@ -61,23 +62,38 @@ struct PathCoord
     int x;
     int y;
     int t; // time
-    int d; // diggingLeft
     int h; // heurestic
     
-    PathCoord(sf::Vector2i coords, int time, int diggingLeft, int heurestic):
-	x(coords.x), y(coords.y), t(time), d(diggingLeft), h(heurestic)
+    PathCoord(sf::Vector2i coords, int time, int heurestic):
+	x(coords.x), y(coords.y), t(time), h(heurestic)
 	{;}
     
-    PathCoord(sf::Vector2i coords, int time, int diggingLeft):
-	x(coords.x), y(coords.y), t(time), d(diggingLeft), h(1000000)
+    PathCoord(sf::Vector2i coords, int time):
+	x(coords.x), y(coords.y), t(time), h(1000000)
 	{;}
 
     void move(int direction)
 	{
 	    sf::Vector2i difference = getMove(direction);
+	    
 	    x += difference.x;
 	    y += difference.y;
 	}
+/*
+    int move(int direction, std::vector<int> profile, bool digging=false)
+	{
+	    sf::Vector2i difference = getMove(direction);
+	    int result = 0;
+	    x += difference.x;
+	    y += difference.y;
+
+	    if(direction == 4) result = profile[0];
+	    else if(digging) result = profile[1] + profile[2];
+	    else result = profile[1];
+	    t += result;
+
+	    return result;
+	}*/
 
     void print () const
 	{
@@ -85,7 +101,6 @@ struct PathCoord
 	    std::cout << "x=" << x << " | ";
 	    std::cout << "y=" << y << " | ";
 	    std::cout << "t=" << t << " | ";
-	    std::cout << "d=" << d << " | ";
 	    std::cout << "h=" << h << " }\n";
 	}
 
@@ -120,7 +135,7 @@ class Region
     sf::RenderStates m_states;
     int m_ticks;
     
-    // stores whether tile at pos 'x' and 'y' and from tick from' to tick 'to'; the value is -1 is it is undiggable, otherwise it's the amount to dig out
+    // stores whether tile at pos 'x' and 'y' and from tick from' to tick 'to'; the value is -1 if it is undiggable, otherwise it's 1
     std::map<Reservation, int, ReservationComparator> m_reservations;
     std::vector< std::vector< std::vector< std::map<sf::Vector2i, int, Vector2iComparator> > > >
     m_naiveDistance;
@@ -132,13 +147,13 @@ class Region
 
     void update();
 
-    /*
-    std::pair<bool, int> isReserved(int x, int y, int from, int to);
+    int isReserved(int x, int y, int from, int to);
 	
-    std::pair<bool, int> isReserved(sf::Vector2i coords, int from, int to);
-    */
+    int isReserved(sf::Vector2i coords, int from, int to);
 
-    //void reserve(sf::Vector2i coords, int from, int to);
+    void reserve(sf::Vector2i coords, int from, int to);
+    
+    bool dereserve(sf::Vector2i coords, int freeAt);
 
     void calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt = sf::Vector2i(-1, -1));
 
@@ -150,9 +165,8 @@ class Region
     std::vector<int> findPath
     (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
     
-    /*std::pair<std::vector<int>, int> findPath
-    (sf::Vector2i start, int time, std::vector<sf::Vector2i> target, int walkingSpeed, int diggingSpeed,
-    int ableToDig, bool reserve = true);*/
+    std::vector<int> findPath(sf::Vector2i start, int time, std::vector<sf::Vector2i> target,
+			      int profileIndex);
     
     bool tick(int ticksPassed);
 

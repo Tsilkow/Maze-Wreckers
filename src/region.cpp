@@ -144,6 +144,11 @@ Region::Region(std::shared_ptr<RegionSettings>& rSetts,
 	    }
 	}
     }
+    
+    for(int i = 0; i < m_targets.size(); ++i)
+    {
+	calcNaiveDistance(m_targets[i], sf::Vector2i(-1, -1));
+    }
 }
 
 void Region::generate()
@@ -175,20 +180,15 @@ void Region::generate()
 	//m_nestDomains[0].insert({nestCoords, i});
     }
 
-    for(int i = 0; i < m_targets.size(); ++i)
-    {
-	calcNaiveDistance(m_targets[i], sf::Vector2i(-1, -1));
-    }
-
     // obstacles registration
     for(int x = 0; x < m_rSetts->dimensions.x; ++x)
     {
 	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
 	{
-	    /*if(m_data[x][y] == 1) // is a wall
+	    if(m_data[x][y] == 1) // is a wall
 	    {
-		m_reservations.insert(Reservation({x, y, 0, -1}));
-		}*/
+		m_reservations.insert(std::make_pair(Reservation({x, y, 0, -1}), 1));
+	    }
 	}
     }
     
@@ -196,6 +196,14 @@ void Region::generate()
 
 void Region::update()
 {
+    for(int x = 0; x < m_rSetts->dimensions.x; ++x)
+    {
+	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
+	{
+	    m_toUpdate.push_back(sf::Vector2i(x, y));
+	}
+    }
+    
     for(int i = 0; i < m_toUpdate.size(); ++i)
     {
 	int index = (m_toUpdate[i].x * m_rSetts->dimensions.y + m_toUpdate[i].y) * 4;
@@ -209,10 +217,15 @@ void Region::update()
 	    {(float) m_rSetts->tileTypes[type].textureIndex    * m_rSetts->texTileSize,
 	     (float)m_rSetts->texTileSize}
 	};
+
+	sf::Color currColor = m_rSetts->tileTypes[type].normColor;
+
+	if(isReserved(m_toUpdate[i], m_ticks, 1) == -1) currColor = sf::Color(255, 0, 0);
+	else if(isReserved(m_toUpdate[i], m_ticks, 1) == 1) currColor = sf::Color(0, 255, 255);
 		
 	for(int j = 0; j < 4; ++j)
 	{
-	    m_representation[index + j].color = m_rSetts->tileTypes[type].normColor;
+	    m_representation[index + j].color = currColor;
 	    m_representation[index + j].texCoords = texCoords[j];
 	}
     }
@@ -222,8 +235,8 @@ void Region::update()
 
 // -1 means reserved by another agent or undiggable obstacle
 // 0 means free
-// x, where x is positive means diggable obstacle
-/*
+// 1 means reserved by a diggable obstacle
+
 int Region::isReserved(int x, int y, int from, int duration)
 {
     int toDig = 0;
@@ -236,18 +249,17 @@ int Region::isReserved(int x, int y, int from, int duration)
 
 	// is it overlapping with previous reservation
 	--it;
-	if(it->first.x == x && it->first.y == y && it->first.to >= from)
+	if(it->first.x == x && it->first.y == y && (it->first.to >= from || it->first.to == -1))
 	{
-	    if(it->second == 0) return -1;
-	    else toDig = it->second;
+	    return it->second;
 	}
 
 	// is it ovelapping with next reservation
 	++it;
-	if(it->first.x == x && it->first.y == y && it->first.from <= to) return -1;
+	if(it->first.x == x && it->first.y == y && it->first.from <= to) return it->second;
     }
 
-    return toDig;
+    return 0;
 }
 
 int Region::isReserved(sf::Vector2i coords, int from, int duration)
@@ -259,30 +271,36 @@ void Region::reserve(sf::Vector2i coords, int from, int duration)
 {
     int to = from + duration-1;
     Reservation temp = {coords.x, coords.y, from, to};
-    m_reservations[temp] = 0;
+    m_reservations[temp] = -1;
+    //m_toUpdate.push_back(coords);
 
     m_toCleanAt.insert({to, temp});
 }
 
-void Region::dereserve(sf::Vector2i coords, int freeAt)
+bool Region::dereserve(sf::Vector2i coords, int freeAt)
 {
     Reservation oldR = {coords.x, coords.y, 0, -1};
-    Reservation newR = {coords.x, coords.y, 0, freeAt};
-    m_reservations.erase(oldR);
-    m_reservations[newR] = 
-    m_reservations[temp];
+    if(m_reservations.find(oldR) != m_reservations.end())
+    {
+	Reservation newR = {coords.x, coords.y, 0, freeAt-1};
+	m_reservations.erase(oldR);
+	m_reservations[newR] = 1;
+	
+	return true;
+    }
+    return false;
 }
-*/
+
 void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 {
     std::set<PathCoord, PathHeuresticComparator> toVisit;
     int startingValue;
-    bool nogo = false;
 
     for(int i = 0; i < m_rSetts->agentProfiles.size(); ++i)
     {
+	bool nogo = false;
 	// if default argument is used, start from target itself
-	if(startAt == sf::Vector2i(-1, -1))
+	if(startAt == from || startAt == sf::Vector2i(-1, -1))
 	{
 	    startAt = from;
 	    startingValue = 0;
@@ -292,43 +310,48 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    // otherwise search for neighbour with best heurestic score and start with them
 	    int min = -1;
 	    int minValue = -1;
-	    for(int j = 0; j < getMoveTotal(); ++j)
+	    nogo = true;
+	    
+	    for(int j = 0; j < getDirectionTotal(); ++j)
 	    {
 		sf::Vector2i temp = startAt + getMove(j);
-		auto found = atCoords(m_naiveDistance[i], temp).find(from);
-		
-		if(inBounds(temp) &&
-		   found != atCoords(m_naiveDistance[i], temp).end() &&
-		   (minValue == -1 || minValue > found->second))
+		if(inBounds(temp))
 		{
-		    min = j;
-		    minValue = found->second;
-		    nogo = false;
+		    auto found = atCoords(m_naiveDistance[i], temp).find(from);
+	        
+		    if(found != atCoords(m_naiveDistance[i], temp).end() &&
+		       (minValue == -1 || minValue > found->second))
+		    {
+			min = j;
+			minValue = found->second;
+			nogo = false;
+		    }
 		}
 	    }
 
 	    if(!nogo)
 	    {
 		startAt = startAt + getMove(min);
-		startingValue = atCoords(m_naiveDistance[i], startAt).find(from)->second;
+		startingValue = atCoords(m_naiveDistance[i], startAt)[from];
 	    }
 	}
+	
 	if(!nogo)
 	{
-	    printVector(startAt, true);
-	    std::cout << startingValue << std::endl;
-
-	    toVisit.insert(PathCoord(startAt, 0, 0, startingValue));
+	    toVisit.insert(PathCoord(startAt, 0, startingValue));
 	    atCoords(m_naiveDistance[i], startAt)[from] = startingValue;
+	    //std::cout << atCoords(m_naiveDistance[i], startAt)[from] << std::endl;
 	    while(toVisit.size() > 0)
 	    {
 		PathCoord curr = *toVisit.begin();
 		toVisit.erase(*toVisit.begin());
+		m_toUpdate.push_back(curr.coords());
 
-		curr.print();
+		//curr.print();
 	    
 		for(int j = 0; j < getDirectionTotal(); ++j)
 		{
+		    bool noWay = false;
 		    PathCoord temp = curr;
 		    temp.move(j);
 
@@ -336,20 +359,21 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 		    {
 			auto found = atCoords(m_naiveDistance[i], temp.coords()).find(from);
 			
-			if(isDiggable(temp.coords()) && m_rSetts->agentProfiles[i].digging != 0)
+			if(m_rSetts->agentProfiles[i].digging != -1 && isDiggable(temp.coords()))
 			{
-			    temp.h += m_rSetts->agentProfiles[i].digging;
+			    temp.h += m_rSetts->agentProfiles[i].walking + m_rSetts->agentProfiles[i].digging;
 			}
-			else
+			else if(isWalkable(temp.coords()))
 			{
 			    temp.h += m_rSetts->agentProfiles[i].walking;
 			}
+			else noWay = true;
 		    
-			if(found == atCoords(m_naiveDistance[i], temp.coords()).end() ||
-			   found->second > temp.h)
+			if(!noWay && (found == atCoords(m_naiveDistance[i], temp.coords()).end() ||
+				      found->second > temp.h))
 			{
-			    std::cout << (found == atCoords(m_naiveDistance[i], temp.coords()).end())
-				      << std::endl;
+			    //std::cout << (found == atCoords(m_naiveDistance[i], temp.coords()).end()) << std::endl;
+			    //std::cout << temp.h << std::endl;
 			    atCoords(m_naiveDistance[i], temp.coords())[from] = temp.h;
 			    toVisit.insert(temp);
 			}
@@ -420,157 +444,177 @@ std::vector<int> Region::getPath(sf::Vector2i start, int time, sf::Vector2i targ
     }
 }
 */
-std::vector<int> Region::findPath
-(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
+std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
 {
-    return {4};
-    /*
     if(time == -1) time = m_ticks;
     int timeOfArrival;
-    std::vector<int> finalPath;
-    std::set<PathCoord, PathCoordHeuresticComparator> potenPaths;
+    std::vector<int> finalPath = {4};
+    std::map<PathCoord, int, PathHeuresticComparator> potenPaths; // coords, depth
     // map storing best direction from these coords to start
     std::map<PathCoord, std::pair<int, int>, PathCoordComparator> directions;
-    PathCoord winner(start, time, ableToDig);
+    PathCoord winner(start, time);
     bool stop = false;
 
-    int ws = m_profiles[profileIndex].walkingSpeed;
-    int ds = m_profiles[profileIndex].diggingSpeed;
+    int ws = m_rSetts->agentProfiles[profileIndex].walking;
+    int ds = m_rSetts->agentProfiles[profileIndex].digging;
 
+    m_targets.emplace_back(target);
     calcNaiveDistance(target);
-    winner.h = atCoords(m_data, start).naiveDistance[profileIndex][target];
-    potenPaths.insert(winner);
+    std::cout << profileIndex << " " << ds << "\n";;
+    printVector(target);
+    winner.h = atCoords(m_naiveDistance[profileIndex], start)[target];
+    potenPaths.insert(std::make_pair(winner, 0));
+    directions[winner] = std::make_pair(-1, 0);
 
     while(potenPaths.size() > 0)
     {
-	PathCoord curr = *potenPaths.begin();
+	PathCoord curr = potenPaths.begin()->first;
+	int depth = potenPaths.begin()->second;
 	potenPaths.erase(potenPaths.begin());
 
-	// check if these coords are available for walking off of them
-	if(isReserved(curr.coords(), curr.t, ws) == 0)
+	std::cout << potenPaths.size() << ": " << depth << ", ";
+	curr.print();
+	//getchar();
+
+	// check if you are at target or if outside of window
+	if(curr.coords() == target || depth >= m_rSetts->pathWindowSize)
 	{
-	    for(int dir = 0; dir < getDirectionTotal(); ++dir) // consider moves without the waiting one
+	    if(curr.h < winner.h) winner = curr;
+	}
+	else
+	{
+	    // check if these coords are available for walking off of them
+	    if(isReserved(curr.coords(), curr.t, ws) != -1)
 	    {
-		// coords which it checks
-		PathCoord next(curr.coords() + getMove(dir), curr.t, curr.d);
-
-		if(inBounds(next.coords()))
+		for(int dir = 0; dir < getDirectionTotal(); ++dir) // consider moves without the waiting one
 		{
-		    // is it possible to walk there
-		    bool nextWalk = (isReserved(next.coords(), next.t, ws) == 0);
+		    // coords which it checks
+		    PathCoord next(curr.coords() + getMove(dir), curr.t);
+
+		    if(inBounds(next.coords()))
+		    {
+			// is it possible to walk there
+			bool nextWalk = (isReserved(next.coords(), next.t, ws) == 0);
 		
-		    // is it possible to dig there and how much digging there is
-		    int temp = isReserved(next.coords(), next.t, ws + ds);
-
-		    bool nextDig = false;
-		    if(isReserved(curr.coords(), curr.t, ws + ds) == 0 && temp > 0 && next.d >= temp)
-		    {
-			next.t += ws + ds;
-			next.d -= temp;
-			nextDig = true
-		    }
-		    else if(nextWalk)
-		    {
-			next.t += ws;
-		    }
-		    // evaluate next using a heurestic
-		    next.h = atCoords(m_data, next.coords()).naiveDistance[profileIndex][target];
-
-		    if(directions.find(next) == directions.end() &&
-		       // checks if coords haven't been visited
-		       (nextWalk || nextDig))
-		    {
-			// marks which direction it came to these coords
-			std::cout << directions[next].second << std::endl;
-
-			// if it has to (and can) dig
-			if(nextDig)
+			// is it possible to dig there and how much digging there is
+			bool nextDig = false;
+			if(ds != -1 && isReserved(curr.coords(), curr.t, ws + ds) != -1 &&
+			   isReserved(next.coords(), next.t, ws + ds) == 1)
 			{
-			    directions[next] = std::make_pair(dir, ws + ds);
-			    potenPaths.insert(next);
+			    next.t += ws + ds;
+			    nextDig = true;
 			}
-			else // if it can walks here
+			else if(nextWalk)
 			{
-			    directions[next] = std::make_pair(dir, ws);
-			    potenPaths.insert(next);
+			    next.t += ws;
 			}
+			// evaluate next using a heurestic
+			next.h = atCoords(m_naiveDistance[profileIndex], next.coords())[target];
 
-			// if it has arrived, stop search
-			if(next.coords() == target)
+			if(directions.find(next) == directions.end() &&
+			   // checks if coords haven't been visited
+			   (nextWalk || nextDig))
 			{
-			    stop = true;
-			    timeOfArrival = next.t;
-			    winner = next;
-			    std::cout << dir << std::endl;
-			    break;
+			    // marks which direction it came to these coords
+			    //std::cout << directions[next].second << std::endl;
+
+			    // if it has to (and can) dig
+			    if(nextDig)
+			    {
+				directions[next] = std::make_pair(dir, ws + ds);
+				potenPaths.insert(std::make_pair(next, depth+1));
+			    }
+			    else // if it can walks here
+			    {
+				directions[next] = std::make_pair(dir, ws);
+				potenPaths.insert(std::make_pair(next, depth+1));
+			    }
 			}
 		    }
 		}
-	    }
-	    if(!stop)
-	    {
 		// consider waiting as a move
-		PathCoord next(curr.coords(), curr.t+1, curr.d);
-		next.h = atCoords(m_data, next.coords()).naiveDistance[profileIndex][target];
+		PathCoord next(curr.coords(), curr.t+1);
+		next.h = atCoords(m_naiveDistance[profileIndex], next.coords())[target];
 		
 		if(isReserved(curr.coords(), curr.t, 1) == 0 &&
 		   directions.find(next) == directions.end())
 		{
 		    directions[next] = std::make_pair(4, 1);
-		    potenPaths.insert(next);
+		    potenPaths.insert(std::make_pair(next, depth+1));
 		}
 	    }
+	    else std::cout << "duud, my place is reserved\n";
 	}
-	else std::cout << "duud, my place is reserved\n";
-	if(stop) break;
     }
 
-    // if seach found the destination
-    if(stop)
+    std::cout << "What did the grand champion do?" << std::endl;
+    winner.print();
+    if(winner.coords() != start)
     {
-	PathCoord curr(target, timeOfArrival, ableToDig);
+	PathCoord curr = winner;
+	finalPath.clear();
 	// recreate best path found
-	while(curr.coords() != target)
+	while(directions[curr].first != -1/*curr.coords() != start && curr.t != time*/)
 	{
+	    printVector(curr.coords());
 	    finalPath.push_back(directions[curr].first);
 	    curr.t -= directions[curr].second;
 	    curr.move(reverseDirection(finalPath.back()));
 	    //getchar();
 	}
 
+	if(curr.t != time)
+	{
+	    std::cout << "WAHT A FUCKING LIAR DUDE" << curr.t << " " << time << std::endl;
+	    getchar();
+	    return {4};
+	}
+
 	std::reverse(finalPath.begin(), finalPath.end());
 
+	// erase second half of the path if the search isn't finished
+	if(winner.coords() != target)
+	{
+	    finalPath.erase(finalPath.cbegin() + finalPath.size()/2, finalPath.cend());
+	}
+
 	// calculate time and reserve the coords it was traversing
+	std::cout << "{ ";
 	for(int i = 0; i < finalPath.size(); ++i)
 	{
+	    std::cout << finalPath[i] << " ";
 	    // if it's waiting
 	    if(finalPath[i] == 4)
 	    {
-	        reserve(curr.coords(), time, 1);
+		reserve(curr.coords(), time, 1);
 		time += 1;
 	    } 
 	    else
 	    {
+		PathCoord next = curr;
+		next.move(finalPath[i]);
 		// else if walking is possible
-		if(isReserved(curr.coords(), time, ws) == 0)
+		if(isReserved(next.coords(), time, ws) == 0)
 		{
-		    reserve(curr.coords()                        , time, ws);
-		    reserve(curr.coords() + getMove(finalPath[i]), time, ws);
+		    reserve(curr.coords(), time, ws);
+		    reserve(next.coords(), time, ws);
 		    time += ws;
 		}
 		else // otherwise dig (it has to be a legal move, cause it was checked before)
 		{
-		    reserve(curr.coords()                        , time, ws + ds);
-		    reserve(curr.coords() + getMove(finalPath[i]), time, ws + ds);
+		    dereserve(next.coords(), curr.t + ws + ds);
+		    reserve(curr.coords(), time, ws + ds);
+		    reserve(next.coords(), time, ws + ds);
 		    time += ws + ds;
 		}
-		curr.move(finalPath[i]);
+		curr = next;
 	    }
 	}
+	std::cout << "}\n";
     }
-
+    else std::cout << "HE DIDN'T FIN MOVE" << std::endl;
+    
     return finalPath;
-    */
 }
 
 /*

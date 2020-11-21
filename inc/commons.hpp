@@ -43,10 +43,10 @@ std::vector<sf::Color> colorGradient(sf::Color start, sf::Color end, int stepTot
 
 std::vector<sf::Color> generatePalette(int colorTotal);
 
-void printVector(sf::Vector2i a, bool enter);
+void printVector(sf::Vector2i a, bool enter=true);
 
-void printVector(sf::Vector3i a, bool enter);
+void printVector(sf::Vector3i a, bool enter=true);
 
-void printVector(sf::Vector2f a, bool enter);
+void printVector(sf::Vector2f a, bool enter=true);
 
 sf::Vector2f alongSquare(float point);

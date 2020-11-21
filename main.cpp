@@ -23,7 +23,7 @@ int main()
 {
     srand(time(NULL));
 
-    TileType open    = {true , false, false, sf::Color(  0,   0,   0), 0};
+    TileType open    = {true , false, false, sf::Color(  0,   0,   0), 1};
     TileType wall    = {false, true , false, sf::Color(  0,   0, 128), 1};
     TileType nest    = {true , false, false, sf::Color(255, 255, 255), 2};
     TileType terrace = {true , false, true , sf::Color(  0, 255, 255), 3};
@@ -40,10 +40,11 @@ int main()
 	    {10, nest},
 	    {2, terrace}}, 
 	{                            // agentProfiles
-	    {1, 16, 0},              // agentNoDigging
+	    {1, 16, -1},              // agentNoDigging
 	    {1, 16, 64},             // agentNormal
 	    {1, 24, 32}              // agentHeavy
-	}
+	},
+	16                           // pathWindowSize
     };
     shared_ptr<RegionSettings> shr_rSetts = make_shared<RegionSettings>(rSetts);
 
@@ -53,7 +54,7 @@ int main()
     
     AgentSettings aSetts =
     {
-	{warrior, digger},          // agentTypes
+	{digger, warrior},          // agentTypes
 	{sf::Color(255, 255, 255)}, // allColors
 	rSetts.tileSize             // tileSize
     };
@@ -65,7 +66,7 @@ int main()
     textures.load("soldier", "data/soldier.png");
 
     sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(600);
     
     sf::View actionView(sf::Vector2f(425.f, 400.f), sf::Vector2f(850, 800));
     window.setView(actionView);
