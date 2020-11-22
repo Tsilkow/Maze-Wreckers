@@ -81,9 +81,10 @@ int Agent::unload()
     return temp;
 }
 
-bool Agent::moveTo(sf::Vector2i target, bool dig)
+bool Agent::setPath()
 {
-    std::vector<int> temp = m_world->findPath(m_coords, -1, target, m_aSetts->agentTypes[m_type].profileIndex);
+    std::vector<int> temp = m_world->findPath(m_coords, -1, m_destination,
+					      m_aSetts->agentTypes[m_type].profileIndex);
 
     if(temp.size() > 0)
     {
@@ -93,6 +94,13 @@ bool Agent::moveTo(sf::Vector2i target, bool dig)
     return false;
 }
 
+bool Agent::moveTo(sf::Vector2i target, bool dig)
+{
+    m_destination = target;
+    
+    return true;
+}
+ 
 bool Agent::tick()
 {
     //std::cout << m_actionProgress << std::endl;
@@ -120,7 +128,7 @@ bool Agent::tick()
 	// if you have no path, find one to destination; if you can't, your destination is now here
 	if(m_path.size() == 0 && m_destination != m_coords)
 	{
-	    if(!moveTo(m_destination, true))
+	    if(!setPath())
 	    {
 		std::cout << "lost destination\n";
 		m_destination = m_coords;
@@ -144,6 +152,7 @@ bool Agent::tick()
 	    if(m_path[0] == 4)
 	    {
 		m_currAction = ActionType::wait;
+		m_path.erase(m_path.begin());
 	    }
 	    else
 	    {
@@ -165,6 +174,7 @@ bool Agent::tick()
 		{
 		    m_currAction = ActionType::wait;
 		    m_path.clear();
+		    m_pathRepres.clear();
 		}
 	    }
 	}
@@ -173,8 +183,8 @@ bool Agent::tick()
 	    m_currAction = ActionType::wait;
 	}
     }
-    
-    m_pathRepres[0].position = m_position;
+
+    if(m_pathRepres.size() > 0) m_pathRepres[0].position = m_position;
     
     switch(m_currAction)
     {

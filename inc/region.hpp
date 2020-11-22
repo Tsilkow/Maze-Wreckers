@@ -156,6 +156,8 @@ class Region
     bool dereserve(sf::Vector2i coords, int freeAt);
 
     void calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt = sf::Vector2i(-1, -1));
+    
+    int getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int time);
 
     public:
     Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures);

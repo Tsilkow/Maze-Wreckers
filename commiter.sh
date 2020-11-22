@@ -2,6 +2,7 @@
 
 git add src/
 git add inc/
+git add data/
 git add main.cpp
 git add CMakeLists.txt
 git add builder.sh

@@ -44,7 +44,7 @@ int main()
 	    {1, 16, 64},             // agentNormal
 	    {1, 24, 32}              // agentHeavy
 	},
-	16                           // pathWindowSize
+	640                           // pathWindowSize
     };
     shared_ptr<RegionSettings> shr_rSetts = make_shared<RegionSettings>(rSetts);
 

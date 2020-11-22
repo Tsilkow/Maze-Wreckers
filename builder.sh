@@ -5,6 +5,7 @@
 #cp Sicretmono.ttf build/Sicretmono.ttf
 #cp station.png build/station.png
 #cp scores.json build/scores.json
+cp -r data/ build/data
 clear
 cd build/
 cmake ..

@@ -67,12 +67,14 @@ class Agent
     bool dig();
 
     int unload();
+
+    bool setPath();
     
     public:
     Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& world,
 	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, int type,
 	sf::Vector2i coords);
-
+    
     bool moveTo(sf::Vector2i target, bool dig);
     
     bool tick();
