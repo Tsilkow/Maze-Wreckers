@@ -11,24 +11,29 @@ int getMoveTotal() {return 5; }
 
 int getDirectionTotal() {return 4; }
 
-sf::Vector2i getMove(int direction)
+sf::Vector2i getMove(Move direction)
 {
-    if(direction != 4) direction = modulo(direction, 4);
+    if(direction != Move::stay) direction = static_cast<Move>(modulo(direction, 4));
     
     switch(direction)
     {
-	case 0: return sf::Vector2i( 0, -1); break; // north
-	case 1: return sf::Vector2i( 1,  0); break; // east
-	case 2: return sf::Vector2i( 0,  1); break; // south
-	case 3: return sf::Vector2i(-1,  0); break; // west
-	case 4: return sf::Vector2i( 0,  0); break; // wait
+	case north: return sf::Vector2i( 0, -1); break;
+	case west : return sf::Vector2i( 1,  0); break;
+	case south: return sf::Vector2i( 0,  1); break;
+	case east : return sf::Vector2i(-1,  0); break;
+	case stay : return sf::Vector2i( 0,  0); break;
     }
 }
 
-int reverseDirection(int direction)
+sf::Vector2i getMove(int direction)
+{
+    return getMove(static_cast<Move>(direction));
+}
+
+Move reverseDirection(Move direction)
 {
     if(direction == 4) return direction;
-    return modulo(direction - 2, 4);
+    return static_cast<Move>(modulo(direction - 2, 4));
 }
 
 int modulo(int a, int b)

@@ -72,7 +72,7 @@ struct PathCoord
 	x(coords.x), y(coords.y), t(time), h(1000000)
 	{;}
 
-    void move(int direction)
+    void move(Move direction)
 	{
 	    sf::Vector2i difference = getMove(direction);
 	    
@@ -164,11 +164,7 @@ class Region
 
     bool digOut(sf::Vector2i coords);
 
-    std::vector<int> findPath
-    (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
-    
-    std::vector<int> findPath(sf::Vector2i start, int time, std::vector<sf::Vector2i> target,
-			      int profileIndex);
+    std::vector<Move> findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
     
     bool tick(int ticksPassed);
 

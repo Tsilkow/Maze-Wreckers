@@ -8,20 +8,24 @@
 #include <SFML/Window.hpp>
 #include <SFML/Audio.hpp>
 
-
 template <typename T>
 T& atCoords(std::vector< std::vector<T> >& data, sf::Vector2i coords)
 {
     return data[coords.x][coords.y];
 }
 
+enum Move {north = 0, west = 1, south = 2, east = 3, stay = 4};
+// if a move is not the waiting one and is out of range, it is expected to be modulo-d by 4
+
 int getMoveTotal();
 
-int getDirectionTotal();
+int getDirectionTotal(); // total of moves without waiting
+
+sf::Vector2i getMove(Move direction);
 
 sf::Vector2i getMove(int direction);
 
-int reverseDirection(int direction);
+Move reverseDirection(Move direction);
 
 int modulo(int a, int b);
 

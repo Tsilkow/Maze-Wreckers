@@ -29,14 +29,7 @@ struct AgentSettings
     int tileSize;
 };
 
-enum ActionType {wait, move, dig, attack};
-
-// TODO: this doesn't require a struct
-struct Action
-{
-    ActionType type;
-    int direction;
-};
+enum Action {wait, move, dig, attack};
     
 class Agent
 {
@@ -47,17 +40,17 @@ class Agent
     int m_allegiance;
     int m_type;
     sf::Vector2i m_coords;
-    int m_direction;
+    Move m_direction;
     std::vector<sf::Vector2i> m_mask;
     sf::Vector2f m_position;
     sf::Sprite m_representation;
     std::vector<sf::Vertex> m_pathRepres;
 
     int m_cargo; // -1 is nothing
-    ActionType m_currAction;
+    Action m_currAction;
     int m_actionProgress;
 
-    std::vector<int> m_path;
+    std::vector<Move> m_path;
     sf::Vector2i m_destination;
 
     bool attack();
@@ -67,15 +60,13 @@ class Agent
     bool dig();
 
     int unload();
-
-    bool setPath();
     
     public:
     Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& world,
 	ResourceHolder<sf::Texture, std::string>& textures, std::string name, int allegiance, int type,
 	sf::Vector2i coords);
     
-    bool moveTo(sf::Vector2i target, bool dig);
+    bool setDestination(sf::Vector2i destination);
     
     bool tick();
 

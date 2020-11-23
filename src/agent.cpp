@@ -10,9 +10,9 @@ Agent::Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& wo
     m_allegiance(allegiance),
     m_type(type),
     m_coords(coords),
-    m_direction(0),
+    m_direction(Move::north),
     m_cargo(-1),
-    m_currAction(ActionType::wait),
+    m_currAction(Action::wait),
     m_actionProgress(0)
 {
     m_mask.push_back(m_coords);
@@ -81,10 +81,12 @@ int Agent::unload()
     return temp;
 }
 
-bool Agent::setPath()
+bool Agent::setDestination(sf::Vector2i destination)
 {
-    std::vector<int> temp = m_world->findPath(m_coords, -1, m_destination,
-					      m_aSetts->agentTypes[m_type].profileIndex);
+    m_destination = destination;
+    
+    std::vector<Move> temp = m_world->findPath(m_coords, -1, m_destination,
+					       m_aSetts->agentTypes[m_type].profileIndex);
 
     if(temp.size() > 0)
     {
@@ -92,13 +94,6 @@ bool Agent::setPath()
 	return true;
     }
     return false;
-}
-
-bool Agent::moveTo(sf::Vector2i target, bool dig)
-{
-    m_destination = target;
-    
-    return true;
 }
  
 bool Agent::tick()
@@ -128,7 +123,7 @@ bool Agent::tick()
 	// if you have no path, find one to destination; if you can't, your destination is now here
 	if(m_path.size() == 0 && m_destination != m_coords)
 	{
-	    if(!setPath())
+	    if(!setDestination(m_destination))
 	    {
 		std::cout << "lost destination\n";
 		m_destination = m_coords;
@@ -151,7 +146,7 @@ bool Agent::tick()
 
 	    if(m_path[0] == 4)
 	    {
-		m_currAction = ActionType::wait;
+		m_currAction = Action::wait;
 		m_path.erase(m_path.begin());
 	    }
 	    else
@@ -162,17 +157,17 @@ bool Agent::tick()
 		// choose action based on next tile 
 		if     (m_world->isWalkable(m_coords + getMove(m_direction)))
 		{
-		    m_currAction = ActionType::move;
+		    m_currAction = Action::move;
 		    m_path.erase(m_path.begin());
 		}
 		else if(m_aSetts->agentTypes[m_type].diggingSpeed != -1 &&
 			m_world->isDiggable(m_coords + getMove(m_direction)))
 		{
-		    m_currAction = ActionType::dig;
+		    m_currAction = Action::dig;
 		}
 		else // if you can't, discard the path (attempt to find a new way will be in the next tick)
 		{
-		    m_currAction = ActionType::wait;
+		    m_currAction = Action::wait;
 		    m_path.clear();
 		    m_pathRepres.clear();
 		}
@@ -180,7 +175,7 @@ bool Agent::tick()
 	}
 	else // if no path
 	{
-	    m_currAction = ActionType::wait;
+	    m_currAction = Action::wait;
 	}
     }
 
@@ -188,10 +183,10 @@ bool Agent::tick()
     
     switch(m_currAction)
     {
-	case ActionType::attack: attack(); break;
-	case ActionType::move:   move();   break;
-	case ActionType::dig:    dig();    break;
-	case ActionType::wait:   ; break;
+	case Action::attack: attack(); break;
+	case Action::move:   move();   break;
+	case Action::dig:    dig();    break;
+	case Action::wait:   ; break;
     }
 
     return true;

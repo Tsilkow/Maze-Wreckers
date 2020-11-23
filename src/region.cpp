@@ -30,7 +30,7 @@ bool PathCoordComparator::operator() (const PathCoord& a, const PathCoord& b)
 	if(a.y == b.y)
 	{
 	    return (a.t < b.t);
-		}
+	}
 	return (a.y < b.y);
     }
     return (a.x < b.x);
@@ -52,62 +52,6 @@ bool PathHeuresticComparator::operator() (const PathCoord& a, const PathCoord& b
     }
     return (a.h < b.h);
 };
-
-// TODO: remove because archaic
-std::vector<int> spreadEvenly(int toGet, int r, int g, int b)
-{
-    std::vector<int> result(3, 0);
-
-    if(r == g && r == b && r == 0)
-    {
-	r = 1;
-	g = 1;
-	b = 1;
-    }
-    
-    int total = r + g + b;
-    result[0] = toGet * r/total;
-    result[1] = toGet * g/total;
-    result[2] = toGet * b/total;
-
-    r -= result[0];
-    g -= result[1];
-    b -= result[2];
-    toGet -= result[0] + result[1] + result[2];
-
-    while(toGet > 0)
-    {
-	if(r > g)
-	{
-	    if(r > b)
-	    {
-		++result[0];
-		--r;
-	    }
-	    else
-	    {
-		++result[2];
-		++b;
-	    }
-	}
-	else
-	{
-	    if(g > b)
-	    {
-		++result[1];
-		--g;
-	    }
-	    else
-	    {
-		++result[2];
-		++b;
-	    }
-	}
-	--toGet;
-    }
-
-    return result;
-}
 
 Region::Region(std::shared_ptr<RegionSettings>& rSetts,
 	       ResourceHolder<sf::Texture, std::string>& textures):
@@ -311,7 +255,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	else
 	{
 	    // otherwise search for neighbour with best heurestic score and start with them
-	    int min = -1;
+	    Move min = Move::stay;
 	    int minValue = -1;
 	    nogo = true;
 	    
@@ -325,7 +269,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 		    if(found != atCoords(m_naiveDistance[i], temp).end() &&
 		       (minValue == -1 || minValue > found->second))
 		    {
-			min = j;
+			min = static_cast<Move>(j);
 			minValue = found->second;
 			nogo = false;
 		    }
@@ -356,7 +300,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 		{
 		    bool noWay = false;
 		    PathCoord temp = curr;
-		    temp.move(j);
+		    temp.move(static_cast<Move>(j));
 
 		    if(inBounds(temp.coords()))
 		    {
@@ -453,14 +397,13 @@ int Region::getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int
     return atCoords(m_naiveDistance[profileIndex], at)[to]/* + time*/;
 }
 
-std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
+std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
 {
     if(time == -1) time = m_ticks;
-    int timeOfArrival;
-    std::vector<int> finalPath = {4};
-    std::set<PathCoord, PathHeuresticComparator> potenPaths;
-    // map storing best direction from these coords to start
-    std::map<PathCoord, std::pair<int, int>, PathCoordComparator> directions;
+    std::vector<Move> finalPath = {Move::stay};
+    std::set<PathCoord, PathHeuresticComparator> potenPaths; // potentialPaths
+    // map storing best direction from these toords to start
+    std::map<PathCoord, std::pair<Move, int>, PathCoordComparator> directions;
     PathCoord winner(start, time);
     bool stop = false;
 
@@ -475,7 +418,7 @@ std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i ta
     //printVector(target);
     winner.h = getHeurestic(profileIndex, start, target, time);
     potenPaths.insert(winner);
-    directions[winner] = std::make_pair(-1, 0);
+    directions[winner] = std::make_pair(Move::stay, 0);
 
     while(potenPaths.size() > 0)
     {
@@ -530,12 +473,12 @@ std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i ta
 			    // if it has to (and can) dig
 			    if(nextDig)
 			    {
-				directions[next] = std::make_pair(dir, ws + ds);
+				directions[next] = std::make_pair(static_cast<Move>(dir), ws + ds);
 				potenPaths.insert(next);
 			    }
 			    else // if it can walks here
 			    {
-				directions[next] = std::make_pair(dir, ws);
+				directions[next] = std::make_pair(static_cast<Move>(dir), ws);
 				potenPaths.insert(next);
 			    }
 			}
@@ -548,7 +491,7 @@ std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i ta
 		if(isReserved(curr.coords(), curr.t, 1) == 0 &&
 		   directions.find(next) == directions.end())
 		{
-		    directions[next] = std::make_pair(4, 1);
+		    directions[next] = std::make_pair(Move::stay, 1);
 		    potenPaths.insert(next);
 		}
 	    }
@@ -563,7 +506,7 @@ std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i ta
 	PathCoord curr = winner;
 	finalPath.clear();
 	// recreate best path found
-	while(directions[curr].first != -1/*curr.coords() != start && curr.t != time*/)
+	while(curr.coords() != start && curr.t != time)
 	{
 	    //printVector(curr.coords());
 	    finalPath.push_back(directions[curr].first);
@@ -576,7 +519,7 @@ std::vector<int> Region::findPath (sf::Vector2i start, int time, sf::Vector2i ta
 	{
 	    std::cout << "WAHT A FUCKING LIAR DUDE" << curr.t << " " << time << std::endl;
 	    getchar();
-	    return {4};
+	    return {Move::stay};
 	}
 
 	std::reverse(finalPath.begin(), finalPath.end());

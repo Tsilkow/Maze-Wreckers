@@ -9,15 +9,18 @@ Simulation::Simulation(std::shared_ptr<RegionSettings>& rSetts, std::shared_ptr<
     m_ticks(0)
 {
     m_shr_region = std::make_shared<Region>(m_region);
+
+
+    // TODO: testy  algorytmicznie weryfikowalne
     
     m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie1", 0, 0, sf::Vector2i(12, 25));
-    m_agents.back().moveTo(sf::Vector2i(0, 0), true);
+    m_agents.back().setDestination(sf::Vector2i(25, 12));
     m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie2", 0, 0, sf::Vector2i(25, 12));
-    m_agents.back().moveTo(sf::Vector2i(1, 0), true);
+    m_agents.back().setDestination(sf::Vector2i(37, 25));
     m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie3", 0, 0, sf::Vector2i(37, 25));
-    m_agents.back().moveTo(sf::Vector2i(2, 0), true);
+    m_agents.back().setDestination(sf::Vector2i(25, 37));
     m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie4", 0, 0, sf::Vector2i(25, 37));
-    m_agents.back().moveTo(sf::Vector2i(3, 0), true);
+    m_agents.back().setDestination(sf::Vector2i(12, 25));
 }
 
 bool Simulation::tick()
