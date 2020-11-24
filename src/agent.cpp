@@ -84,6 +84,10 @@ int Agent::unload()
 bool Agent::setDestination(sf::Vector2i destination)
 {
     m_destination = destination;
+
+    return true;
+}
+/*
     
     std::vector<Move> temp = m_world->findPath(m_coords, -1, m_destination,
 					       m_aSetts->agentTypes[m_type].profileIndex);
@@ -91,6 +95,17 @@ bool Agent::setDestination(sf::Vector2i destination)
     if(temp.size() > 0)
     {
 	m_path = temp;
+	return true;
+    }
+    return false;
+}
+*/
+
+bool Agent::manifest()
+{
+    if(m_actionProgress == 0 && m_path.size() == 0)
+    {
+	m_world->requestPath(getId(), m_coords, m_destination, m_aSetts->agentTypes[m_type].profileIndex);
 	return true;
     }
     return false;
@@ -120,14 +135,10 @@ bool Agent::tick()
     // if action is finished
     if(m_actionProgress == 0)
     {
-	// if you have no path, find one to destination; if you can't, your destination is now here
-	if(m_path.size() == 0 && m_destination != m_coords)
+	// if you have no path, check if you have one ready
+	if(m_path.size() == 0)
 	{
-	    if(!setDestination(m_destination))
-	    {
-		std::cout << "lost destination\n";
-		m_destination = m_coords;
-	    }
+	    m_path = m_world->getPath(getId());
 	}
 
 	// path processing
@@ -196,4 +207,9 @@ void Agent::draw(sf::RenderTarget& target)
 {
     target.draw(m_representation);
     target.draw(&m_pathRepres[0], m_pathRepres.size(), sf::LineStrip);
+}
+
+std::string Agent::getId()
+{
+    return m_name + " (" + std::to_string(m_allegiance) + ")";
 }

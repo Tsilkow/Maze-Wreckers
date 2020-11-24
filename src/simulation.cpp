@@ -27,11 +27,20 @@ bool Simulation::tick()
 {
     ++m_ticks;
     
-    m_shr_region->tick(m_ticks);
+    
+    for(int i = 0; i < m_agents.size(); ++i)
+    {
+	m_agents[i].manifest();
+    }
+
+    m_shr_region->commitPaths();
+    
     for(int i = 0; i < m_agents.size(); ++i)
     {
 	m_agents[i].tick();
     }
+    
+    m_shr_region->tick(m_ticks);
     //std::cout << m_ticks << std::endl;
 
     return true;

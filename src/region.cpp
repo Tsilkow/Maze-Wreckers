@@ -147,7 +147,7 @@ void Region::update()
 	    m_toUpdate.push_back(sf::Vector2i(x, y));
 	}
     }
-    std::cout << m_ticks << std::endl;;
+    //std::cout << m_ticks << std::endl;;
     
     for(int i = 0; i < m_toUpdate.size(); ++i)
     {
@@ -165,8 +165,8 @@ void Region::update()
 
 	sf::Color currColor = m_rSetts->tileTypes[type].normColor;
 
-	if(isReserved(m_toUpdate[i], m_ticks, 1) == -1) currColor = sf::Color(255, 0, 0);
-	else if(isReserved(m_toUpdate[i], m_ticks, 1) == 1) currColor = sf::Color(0, 255, 255);
+        //if(isReserved(m_toUpdate[i], m_ticks, 1) == 1) currColor = sf::Color(0, 255, 255);
+        if(isReserved(m_toUpdate[i], m_ticks, 1) == -1) currColor = sf::Color(255, 0, 0);
 		
 	for(int j = 0; j < 4; ++j)
 	{
@@ -216,6 +216,7 @@ void Region::reserve(sf::Vector2i coords, int from, int duration)
 {
     int to = from + duration-1;
     if(duration == -1) to = -1;
+    
     Reservation temp = {coords.x, coords.y, from, to};
     m_reservations[temp] = -1;
     //m_toUpdate.push_back(coords);
@@ -223,15 +224,18 @@ void Region::reserve(sf::Vector2i coords, int from, int duration)
     m_toCleanAt.insert({to, temp});
 }
 
-bool Region::dereserve(sf::Vector2i coords, int freeAt)
+bool Region::dereserve(sf::Vector2i coords, int from, int freeAt)
 {
-    Reservation oldR = {coords.x, coords.y, 0, -1};
+    Reservation oldR = {coords.x, coords.y, from, -1};
     if(m_reservations.find(oldR) != m_reservations.end())
     {
-	Reservation newR = {coords.x, coords.y, 0, freeAt-1};
-	m_reservations[newR] = m_reservations[oldR];
-	std::cout << "Should not be -1: " << freeAt-1 << std::endl;
+	Reservation newR = {coords.x, coords.y, from, freeAt-1};
+        int temp = m_reservations[oldR];
+	//std::cout << "Should not be -1: " << freeAt-1 << std::endl;
 	m_reservations.erase(oldR);
+	m_reservations[newR] = temp;
+
+	m_toCleanAt.insert({freeAt-1, newR});
 	
 	return true;
     }
@@ -436,8 +440,10 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 	else
 	{
 	    // check if these coords are available for walking off of them
-	    if(isReserved(curr.coords(), curr.t, ws) != -1)
+	    if((curr.coords() == start && curr.t <= time + ds + ws + 2) ||
+	       isReserved(curr.coords(), curr.t, ws) != -1)
 	    {
+		//std::cout << "I do something yk!\n";
 		for(int dir = 0; dir < getDirectionTotal(); ++dir) // consider moves without the waiting one
 		{
 		    // coords which it checks
@@ -450,7 +456,9 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		
 			// is it possible to dig there and how much digging there is
 			bool nextDig = false;
-			if(ds != -1 && isReserved(curr.coords(), curr.t, ws + ds) != -1 &&
+			if(ds != -1 &&
+			   ((curr.coords() == start && curr.t <= time + ds + ws) ||
+			    isReserved(curr.coords(), curr.t, ws + ds) != -1) &&
 			   isReserved(next.coords(), next.t, ws + ds) == 1)
 			{
 			    next.t += ws + ds;
@@ -495,13 +503,10 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		    potenPaths.insert(next);
 		}
 	    }
-	    else std::cout << "duud, my place is reserved\n";
+	    //else std::cout << "duud, my place is reserved\n";
 	}
     }
 
-    std::cout << "What did the grand champion do?" << std::endl;
-    //winner.print();
-    //if(winner.coords() != start)
     {
 	PathCoord curr = winner;
 	finalPath.clear();
@@ -532,10 +537,10 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 	*/
 
 	// calculate time and reserve the coords it was traversing
-	std::cout << "{ ";
+	//std::cout << "{ ";
 	for(int i = 0; i < finalPath.size(); ++i)
 	{
-	    std::cout << finalPath[i] << " ";
+	    //std::cout << finalPath[i] << " ";
 	    // if it's waiting
 	    if(finalPath[i] == 4)
 	    {
@@ -546,7 +551,15 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 	    {
 		PathCoord next = curr;
 		next.move(finalPath[i]);
-		// else if walking is possible
+		// if walking is possible
+
+		// if this step is made at the start of the window, specially dereserve idle reservation
+		if(curr.coords() == start && curr.t <= time + ws + ds &&
+		   isReserved(curr.coords(), curr.t, ws + ds) == -1)
+		{
+		    if(!dereserve(curr.coords(), time, time+1)) std::cout << "ERROR IN SPECIAL DERESERVE\n";
+		}
+		    
 		if(isReserved(next.coords(), curr.t, ws) == 0)
 		{
 		    reserve(curr.coords(), curr.t, ws);
@@ -555,7 +568,7 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		}
 		else // otherwise dig (it has to be a legal move, cause it was checked before)
 		{
-		    dereserve(next.coords(), curr.t + ds);
+		    if(!dereserve(next.coords(), 0, curr.t + ds)) std::cout << "ERROR IN NON-SPECIAL DERESERVE\n";
 		    reserve(curr.coords(), curr.t, ws + ds);
 		    reserve(next.coords(), curr.t, ws + ds);
 		    next.t += ws + ds;
@@ -568,8 +581,8 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		finalPath.erase(finalPath.cbegin()+i+1, finalPath.cend());
 		break;
 	    }
-	    if(i == finalPath.size()-1 && winner.coords() == target) reserve(winner.coords(), curr.t, -1);
-	    std::cout << "}\n";
+	    //if(i == finalPath.size()-1 && winner.coords() == target) reserve(winner.coords(), curr.t, -1);
+	    //std::cout << "}\n";
 	}
     }
     //else std::cout << "HE DIDN'T FIN MOVE" << std::endl;
@@ -613,6 +626,47 @@ std::pair<std::vector<int>, int> findDiggingPath(sf::Vector2i start, int time, s
 }
 */
 
+void Region::requestPath(std::string id, sf::Vector2i start, sf::Vector2i target, int profIndex)
+{
+    if(start != target)
+    {
+	int safe = m_rSetts->agentProfiles[profIndex].walking;
+	if(m_rSetts->agentProfiles[profIndex].digging > 0) safe += m_rSetts->agentProfiles[profIndex].digging;
+	
+	m_requests.insert(std::make_pair(id, std::make_tuple(start, target, profIndex)));
+	//printVector(start);
+	//std::cout << m_ticks << " " << safe << std::endl;
+	reserve(start, m_ticks, safe);
+    }
+    else
+    {
+	reserve(start, m_ticks, m_rSetts->pathWindowSize);
+    }
+}
+
+std::vector<Move> Region::getPath(std::string id)
+{
+    std::vector<Move> result = {};
+    if(m_paths.find(id) != m_paths.end())
+    {
+	result = m_paths[id];
+	m_paths.erase(m_paths.find(id));
+    }
+    
+    return result;
+}
+
+bool Region::commitPaths()
+{
+    for(auto it = m_requests.begin(); it != m_requests.end(); ++it)
+    {
+	m_paths[it->first] =
+	    findPath(std::get<0>(it->second), -1, std::get<1>(it->second), std::get<2>(it->second));
+    }
+
+    m_requests.clear();
+}
+
 bool Region::tick(int ticksPassed)
 {
     m_ticks = ticksPassed;
@@ -620,7 +674,11 @@ bool Region::tick(int ticksPassed)
     auto found = m_toCleanAt.find(m_ticks);
     while(found != m_toCleanAt.end())
     {
-	m_reservations.erase(m_reservations.find(found->second));
+	if(m_reservations.find(found->second) != m_reservations.end())
+	{
+	    m_reservations.erase(m_reservations.find(found->second));
+	}
+	//else std::cout << "This dude was double here: " << found->second.x << " " << found->second.y << "\n";
 	m_toCleanAt.erase(found);
 	found = m_toCleanAt.find(m_ticks);
     }

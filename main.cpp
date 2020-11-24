@@ -3,10 +3,9 @@
 /*
  * TO DO:
  * 1. Make direction handling more clear: enumerate directions, add more comments in commons.hpp [DONE]
- * 2. Implement benchmark checking system
- * 3. Streamline Agent's path requesting 
- * 4. Implement agent's path and location registry on the side of region
- * 5. Add instructions to install sfml and cmake to README.md
+ * 2. Implement agent's path and location registry on the side of region
+ * 3. Implement benchmark checking system
+ * 4. Add instructions to install sfml and cmake to README.md
  * 
  * 
  * 

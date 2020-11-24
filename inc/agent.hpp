@@ -67,11 +67,19 @@ class Agent
 	sf::Vector2i coords);
     
     bool setDestination(sf::Vector2i destination);
+
+    bool manifest();
     
     bool tick();
 
     void draw(sf::RenderTarget& target);
 
 
+    std::string getId();
+
     const int& getType() {return m_type; }
+
+    const sf::Vector2i& getCoords() {return m_coords; }
+
+    const std::vector<sf::Vector2i>& getMask() {return m_mask; }
 };
