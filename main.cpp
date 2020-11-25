@@ -79,18 +79,41 @@ int main()
     textures.load("worker", "data/worker.png");
     textures.load("soldier", "data/soldier.png");
 
+    vector<vector<pair<sf::Vector2i, sf::Vector2i>>> tests =
+    {
+	{
+	    {sf::Vector2i( 0,  0), sf::Vector2i(48, 48)},
+	    {sf::Vector2i( 1,  0), sf::Vector2i(49, 48)},
+	    {sf::Vector2i( 1,  1), sf::Vector2i(49, 49)},
+	    {sf::Vector2i( 0,  1), sf::Vector2i(48, 49)}
+	},
+	{
+	    {sf::Vector2i(25, 12), sf::Vector2i(37, 25)},
+	    {sf::Vector2i(37, 25), sf::Vector2i(25, 37)},
+	    {sf::Vector2i(25, 37), sf::Vector2i(12, 25)},
+	    {sf::Vector2i(12, 25), sf::Vector2i(25, 12)}
+	},
+	{
+	    {sf::Vector2i(24, 24), sf::Vector2i(49, 49)},
+	    {sf::Vector2i(25, 24), sf::Vector2i( 0, 49)},
+	    {sf::Vector2i(25, 25), sf::Vector2i( 0,  0)},
+	    {sf::Vector2i(24, 25), sf::Vector2i(49,  0)}
+	}
+    };
+
     sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");
-    window.setFramerateLimit(600);
+    window.setFramerateLimit(6);
     
     sf::View actionView(sf::Vector2f(425.f, 400.f), sf::Vector2f(850, 800));
     window.setView(actionView);
 
-    Simulation simulation(shr_rSetts, shr_aSetts, textures);
+    std::shared_ptr<Simulation> simulation(nullptr);
 
     enum GameState{Menu, Play, Scores};
     GameState currState = GameState::Play;
     bool hasFocus = true;
     int ticksPassed = 0;
+    int testCounter = -1;
 
     while(window.isOpen())
     {
@@ -146,8 +169,18 @@ int main()
 	switch(currState)
 	{	
 	    case GameState::Play:
-		simulation.tick();
-		simulation.draw(window);
+		
+		if(simulation.get() == nullptr || !simulation->tick())
+		{
+		    ++testCounter;
+		    if(testCounter < tests.size())
+		    {
+			simulation = make_shared<Simulation>(shr_rSetts, shr_aSetts, textures,
+							     tests[testCounter]);
+		    }
+		    else window.close();
+		}
+		simulation->draw(window);
 		break;
 	}
 

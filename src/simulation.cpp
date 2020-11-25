@@ -2,31 +2,28 @@
 
 
 Simulation::Simulation(std::shared_ptr<RegionSettings>& rSetts, std::shared_ptr<AgentSettings>& aSetts,
-	       ResourceHolder<sf::Texture, std::string>& textures):
+		       ResourceHolder<sf::Texture, std::string>& textures,
+		       std::vector<std::pair<sf::Vector2i, sf::Vector2i>> test):
     m_rSetts(rSetts),
     m_aSetts(aSetts),
     m_region(rSetts, textures),
-    m_ticks(0)
+    m_ticks(0),
+    m_test(test)
 {
     m_shr_region = std::make_shared<Region>(m_region);
 
-
-    // TODO: testy  algorytmicznie weryfikowalne
-    
-    m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie1", 0, 0, sf::Vector2i(12, 25));
-    m_agents.back().setDestination(sf::Vector2i(25, 12));
-    m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie2", 0, 0, sf::Vector2i(25, 12));
-    m_agents.back().setDestination(sf::Vector2i(37, 25));
-    m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie3", 0, 0, sf::Vector2i(37, 25));
-    m_agents.back().setDestination(sf::Vector2i(25, 37));
-    m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie4", 0, 0, sf::Vector2i(25, 37));
-    m_agents.back().setDestination(sf::Vector2i(12, 25));
+    for(int i = 0; i < m_test.size(); ++i)
+    {
+	m_shr_region->digOut(m_test[i].first);
+	m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie"+std::to_string(i), 0, 0,
+			      m_test[i].first);
+	m_agents.back().setDestination(m_test[i].second);
+    }
 }
 
 bool Simulation::tick()
 {
     ++m_ticks;
-    
     
     for(int i = 0; i < m_agents.size(); ++i)
     {
@@ -41,6 +38,12 @@ bool Simulation::tick()
     }
     
     m_shr_region->tick(m_ticks);
+
+    for(int i = 0; i < m_test.size(); ++i)
+    {
+	if(m_agents[i].getCoords() != m_test[i].second) break;
+	if(i == m_test.size()-1) return false;
+    }
     //std::cout << m_ticks << std::endl;
 
     return true;

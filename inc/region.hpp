@@ -152,7 +152,9 @@ class Region
 	
     int isReserved(sf::Vector2i coords, int from, int duration);
 
-    void reserve(sf::Vector2i coords, int from, int duration);
+    void reserve(sf::Vector2i coords, int from, int duration, bool cleanUp = true);
+    
+    bool destroyReservation(sf::Vector2i coords, int from);
     
     bool dereserve(sf::Vector2i coords, int from, int freeAt);
 
@@ -160,7 +162,7 @@ class Region
     
     int getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int time);
 
-    std::vector<Move> findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
+    std::vector<Move> findPath(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
 
     public:
     Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures);

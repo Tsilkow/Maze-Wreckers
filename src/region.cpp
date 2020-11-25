@@ -212,7 +212,7 @@ int Region::isReserved(sf::Vector2i coords, int from, int duration)
     return isReserved(coords.x, coords.y, from, duration);
 }
 
-void Region::reserve(sf::Vector2i coords, int from, int duration)
+void Region::reserve(sf::Vector2i coords, int from, int duration, bool cleanUp)
 {
     int to = from + duration-1;
     if(duration == -1) to = -1;
@@ -221,7 +221,19 @@ void Region::reserve(sf::Vector2i coords, int from, int duration)
     m_reservations[temp] = -1;
     //m_toUpdate.push_back(coords);
 
-    m_toCleanAt.insert({to, temp});
+    if(cleanUp) m_toCleanAt.insert({to, temp});
+}
+
+bool Region::destroyReservation(sf::Vector2i coords, int from)
+{
+    Reservation thatOne = {coords.x, coords.y, from, -1};
+    if(m_reservations.find(thatOne) != m_reservations.end())
+    {
+	m_reservations.erase(thatOne);
+	
+	return true;
+    }
+    return false;
 }
 
 bool Region::dereserve(sf::Vector2i coords, int from, int freeAt)
@@ -557,7 +569,7 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		if(curr.coords() == start && curr.t <= time + ws + ds &&
 		   isReserved(curr.coords(), curr.t, ws + ds) == -1)
 		{
-		    if(!dereserve(curr.coords(), time, time+1)) std::cout << "ERROR IN SPECIAL DERESERVE\n";
+		    destroyReservation(curr.coords(), time);
 		}
 		    
 		if(isReserved(next.coords(), curr.t, ws) == 0)
@@ -636,7 +648,7 @@ void Region::requestPath(std::string id, sf::Vector2i start, sf::Vector2i target
 	m_requests.insert(std::make_pair(id, std::make_tuple(start, target, profIndex)));
 	//printVector(start);
 	//std::cout << m_ticks << " " << safe << std::endl;
-	reserve(start, m_ticks, safe);
+	reserve(start, m_ticks, safe, false);
     }
     else
     {
