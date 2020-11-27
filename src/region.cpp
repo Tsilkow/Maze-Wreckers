@@ -125,13 +125,15 @@ void Region::generate()
     }
 
     // obstacles registration
+    m_obstacles = std::vector< std::vector<int> >(m_rSetts->dimensions.x,
+						  std::vector<int>(m_rSetts->dimensions.y, -1));
     for(int x = 0; x < m_rSetts->dimensions.x; ++x)
     {
 	for(int y = 0; y < m_rSetts->dimensions.y; ++y)
 	{
 	    if(m_data[x][y] == 1) // is a wall
 	    {
-		m_reservations.insert(std::make_pair(Reservation({x, y, 0, -1}), 1));
+		m_obstacles[x][y] = -100;
 	    }
 	}
     }
@@ -166,7 +168,7 @@ void Region::update()
 	sf::Color currColor = m_rSetts->tileTypes[type].normColor;
 
         //if(isReserved(m_toUpdate[i], m_ticks, 1) == 1) currColor = sf::Color(0, 255, 255);
-        if(isReserved(m_toUpdate[i], m_ticks, 1) == -1) currColor = sf::Color(255, 0, 0);
+        if(isReserved(m_toUpdate[i], m_ticks, 1)) currColor = sf::Color(255, 0, 0);
 		
 	for(int j = 0; j < 4; ++j)
 	{
@@ -178,65 +180,106 @@ void Region::update()
     m_toUpdate.clear();
 }
 
-// -1 means reserved by another agent or undiggable obstacle
-// 0 means free
-// 1 means reserved by a diggable obstacle
-
-int Region::isReserved(int x, int y, int from, int duration)
+bool Region::isReserved(int x, int y, int from, int duration, bool debug)
 {
-    int toDig = 0;
+    if(debug)
+    {
+	for(auto it = m_reservations.begin(); it != m_reservations.end(); ++it)
+	{
+	    std::cout <<"{" << it->x << " " << it->y << " " << it->from << ":" << it->to << "}\n";
+	}
+    }
+    
     int to = from + duration-1;
     // checking if there are any reservations
     if(m_reservations.begin() != m_reservations.end())
     {
-	// first element that is not smaller than time
+	// first element that is greater than time
 	auto it = m_reservations.lower_bound({x, y, from, to});
+	
+	if(debug) std::cout << "LOOKING FOR{" << x << " " << y << " " << from << ":" << to << "}\n";
 
 	// is it overlapping with previous reservation
-	--it;
-	if(it->first.x == x && it->first.y == y && (it->first.to >= from || it->first.to == -1))
+	    
+	if(it != m_reservations.begin())
 	{
-	    return it->second;
+	    --it;
+	    if(debug) std::cout <<"FIRST{" << it->x << " " << it->y << " " << it->from << ":" << it->to << "}\n";
+	    if(it->x == x && it->y == y && (it->to >= from || it->to == -1))
+	    {
+		if(debug) std::cout << "TRUE";
+		if(debug) getchar();
+		return true;
+	    }
+	    // is it overlapping with next reservation
+	    ++it;
 	}
 
-	// is it ovelapping with next reservation
-	++it;
-	if(it->first.x == x && it->first.y == y && it->first.from <= to) return it->second;
+	
+	if(it != m_reservations.end())
+	{
+	    if(debug) std::cout <<"SECOND{" << it->x << " " << it->y << " " << it->from << ":" << it->to << "}\n";
+	    if(it->x == x && it->y == y && it->from <= to)
+	    {
+		if(debug) std::cout << "TRUE";
+		if(debug) getchar();
+		return true;
+	    }
+	}
     }
 
-    return 0;
+    if(debug) std::cout << "FALSE";
+    if(debug) getchar();
+    return false;
 }
 
-int Region::isReserved(sf::Vector2i coords, int from, int duration)
+bool Region::isReserved(sf::Vector2i coords, int from, int duration, bool debug)
 {
-    return isReserved(coords.x, coords.y, from, duration);
+    return isReserved(coords.x, coords.y, from, duration, debug);
+}
+
+bool Region::isBlocked(sf::Vector2i coords, int from)
+{
+    int temp = atCoords(m_obstacles, coords);
+
+    if(temp == -100) return true; // blocked until infinity
+    if(temp < from) return false;
+    return true;
 }
 
 void Region::reserve(sf::Vector2i coords, int from, int duration, bool cleanUp)
 {
     int to = from + duration-1;
     if(duration == -1) to = -1;
+
+    if(isReserved(coords, from, duration))
+    {
+	printVector(coords, false);
+	isReserved(coords, from, duration, true);
+	std::cout << "IOIOIOIOIOIO\n";
+	getchar();
+    }
     
     Reservation temp = {coords.x, coords.y, from, to};
-    m_reservations[temp] = -1;
-    //m_toUpdate.push_back(coords);
+    m_reservations.insert(temp);
+    m_toUpdate.push_back(coords);
 
-    if(cleanUp) m_toCleanAt.insert({to, temp});
+    if(cleanUp) m_toCleanAt.insert({to+1, temp});
 }
 
-bool Region::destroyReservation(sf::Vector2i coords, int from)
+bool Region::dereserve(sf::Vector2i coords, int from)
 {
-    Reservation thatOne = {coords.x, coords.y, from, -1};
-    if(m_reservations.find(thatOne) != m_reservations.end())
+    Reservation temp = {coords.x, coords.y, from, -1};
+    if(m_reservations.find(temp) != m_reservations.end())
     {
-	m_reservations.erase(thatOne);
+	m_reservations.erase(m_reservations.find(temp));
 	
 	return true;
     }
     return false;
 }
 
-bool Region::dereserve(sf::Vector2i coords, int from, int freeAt)
+/*bool Region::dereserve(sf::Vector2i coords, int from, int freeAt)
 {
     Reservation oldR = {coords.x, coords.y, from, -1};
     if(m_reservations.find(oldR) != m_reservations.end())
@@ -252,7 +295,7 @@ bool Region::dereserve(sf::Vector2i coords, int from, int freeAt)
 	return true;
     }
     return false;
-}
+    }*/
 
 void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 {
@@ -308,7 +351,7 @@ void Region::calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt)
 	    {
 		PathCoord curr = *toVisit.begin();
 		toVisit.erase(*toVisit.begin());
-		m_toUpdate.push_back(curr.coords());
+		//m_toUpdate.push_back(curr.coords());
 
 		//curr.print();
 	    
@@ -353,6 +396,11 @@ bool Region::digOut(sf::Vector2i coords)
     if(isDiggable(coords))
     {
 	atCoords(m_data, coords) = 0;
+	if(atCoords(m_obstacles, coords) != m_ticks)
+	{
+	    std::cout << "UNREGISTERED DIG!" << atCoords(m_obstacles, coords) << " != " << m_ticks;
+	    atCoords(m_obstacles, coords) = m_ticks;
+	}
 	m_toUpdate.push_back(coords);
 	for(int i = 0; i < m_targets.size(); ++i)
 	{
@@ -413,90 +461,84 @@ int Region::getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int
     return atCoords(m_naiveDistance[profileIndex], at)[to]/* + time*/;
 }
 
-std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i target, int profileIndex)
+std::pair<std::vector<Move>, PathCoord> Region::findPath
+(sf::Vector2i start, sf::Vector2i target, int profileIndex)
 {
-    if(time == -1) time = m_ticks;
-    std::vector<Move> finalPath = {Move::stay};
+    //if(time == -1) time = m_ticks;
+    std::vector<Move> finalPath;
     std::set<PathCoord, PathHeuresticComparator> potenPaths; // potentialPaths
-    // map storing best direction from these toords to start
     std::map<PathCoord, std::pair<Move, int>, PathCoordComparator> directions;
-    PathCoord winner(start, time);
-    bool stop = false;
+// map storing best direction from these toords to start
+    PathCoord winner(start, m_ticks);
 
-    int ws = m_rSetts->agentProfiles[profileIndex].walking;
-    int ds = m_rSetts->agentProfiles[profileIndex].digging;
+    int wt = m_rSetts->agentProfiles[profileIndex].waiting; // shorthand for waiting time
+    int ws = m_rSetts->agentProfiles[profileIndex].walking; // shorthand for walking speed
+    int ds = m_rSetts->agentProfiles[profileIndex].digging; // shorthand for digging speed
 
-    //std::cout << time << std::endl;
-
-    m_targets.emplace_back(target);
-    calcNaiveDistance(target);
-    //std::cout << profileIndex << " " << ds << "\n";;
-    //printVector(target);
-    winner.h = getHeurestic(profileIndex, start, target, time);
+    m_targets.emplace_back(target); // add destination to the list of tracked targets
+    calcNaiveDistance(target); // calculate (or make sure it's already calculated) naive distance
+    winner.h = getHeurestic(profileIndex, start, target, m_ticks);
     potenPaths.insert(winner);
     directions[winner] = std::make_pair(Move::stay, 0);
+
+    // destroy stand-in reservation for this agent
+    dereserve(winner.coords(), m_ticks);
 
     while(potenPaths.size() > 0)
     {
 	PathCoord curr = *potenPaths.begin();
 	potenPaths.erase(potenPaths.begin());
 
-	//curr.print();
-	//getchar();
-
-	// check if you are at target or if outside of window
-	if(curr.coords() == target || curr.t - time >= m_rSetts->pathWindowSize)
+	// check if these coords are available for walking off of them
+	if(!isReserved(curr.coords(), curr.t, ws))
 	{
-	    if(curr.h < winner.h) winner = curr;
-	}
-	else
-	{
-	    // check if these coords are available for walking off of them
-	    if((curr.coords() == start && curr.t <= time + ds + ws + 2) ||
-	       isReserved(curr.coords(), curr.t, ws) != -1)
+	    // if this path has reached destination or edge of the time window, compare it to the best so far
+	    if(curr.coords() == target || curr.t - m_ticks >= m_rSetts->pathWindowSize)
+	    {
+		if(curr.h < winner.h || winner.t == m_ticks)
+		{
+		    winner = curr;
+		    std::cout << "NOJE VINNER\n";
+		}
+	    }
+	    else // if the path hasn't reached anything, go further
 	    {
 		//std::cout << "I do something yk!\n";
-		for(int dir = 0; dir < getDirectionTotal(); ++dir) // consider moves without the waiting one
+		// consider all directions for the next move
+		for(int dir = 0; dir < getDirectionTotal(); ++dir) 
 		{
-		    // coords which it checks
 		    PathCoord next(curr.coords() + getMove(dir), curr.t);
 
 		    if(inBounds(next.coords()))
 		    {
 			// is it possible to walk there
-			bool nextWalk = (isReserved(next.coords(), next.t, ws) == 0);
+			bool nextWalk = (!isReserved(next.coords(), curr.t, ws) &&
+					 !isBlocked(next.coords(), curr.t));
 		
-			// is it possible to dig there and how much digging there is
-			bool nextDig = false;
-			if(ds != -1 &&
-			   ((curr.coords() == start && curr.t <= time + ds + ws) ||
-			    isReserved(curr.coords(), curr.t, ws + ds) != -1) &&
-			   isReserved(next.coords(), next.t, ws + ds) == 1)
-			{
-			    next.t += ws + ds;
-			    nextDig = true;
-			}
-			else if(nextWalk)
-			{
-			    next.t += ws;
-			}
-			// evaluate next using a heurestic
-			next.h = getHeurestic(profileIndex, next.coords(), target, next.t);
+			// is it possible to dig there
+			bool nextDig = (ds != -1 && // can agent dig
+					isBlocked(next.coords(), curr.t) && // is there a place to dig
+					!isReserved(curr.coords(), curr.t, ws + ds) &&
+					!isReserved(next.coords(), curr.t, ws + ds));
+					
+			
+			if(nextDig) next.t += ws + ds;
+			else if(nextWalk) next.t += ws;
 
 			if(directions.find(next) == directions.end() &&
-			   // checks if coords haven't been visited
+                           // checks if coords haven't been visited
 			   (nextWalk || nextDig))
 			{
-			    // marks which direction it came to these coords
-			    //std::cout << directions[next].second << std::endl;
-
+			    // evaluate next using a heurestic
+			    next.h = getHeurestic(profileIndex, next.coords(), target, next.t);
+			
 			    // if it has to (and can) dig
 			    if(nextDig)
 			    {
 				directions[next] = std::make_pair(static_cast<Move>(dir), ws + ds);
 				potenPaths.insert(next);
 			    }
-			    else // if it can walks here
+			    else // if it can walks there
 			    {
 				directions[next] = std::make_pair(static_cast<Move>(dir), ws);
 				potenPaths.insert(next);
@@ -505,13 +547,13 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		    }
 		}
 		// consider waiting as a move
-		PathCoord next(curr.coords(), curr.t+1);
+		PathCoord next(curr.coords(), curr.t+wt);
 		next.h = getHeurestic(profileIndex, next.coords(), target, next.t);
 		
-		if(isReserved(curr.coords(), curr.t, 1) == 0 &&
+		if(!isReserved(curr.coords(), curr.t, wt) &&
 		   directions.find(next) == directions.end())
 		{
-		    directions[next] = std::make_pair(Move::stay, 1);
+		    directions[next] = std::make_pair(Move::stay, wt);
 		    potenPaths.insert(next);
 		}
 	    }
@@ -519,11 +561,13 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 	}
     }
 
+    winner.print();
+
     {
 	PathCoord curr = winner;
-	finalPath.clear();
-	// recreate best path found
-	while(curr.coords() != start && curr.t != time)
+	
+	// recreate best path found by going backwards
+	while(curr.coords() != start || curr.t != m_ticks)
 	{
 	    //printVector(curr.coords());
 	    finalPath.push_back(directions[curr].first);
@@ -532,47 +576,35 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 	    //getchar();
 	}
 
-	if(curr.t != time)
+	if(curr.t != m_ticks)
 	{
-	    std::cout << "WAHT A FUCKING LIAR DUDE" << curr.t << " " << time << std::endl;
+	    std::cout << "WAHT A FUCKING LIAR DUDE" << curr.t << " " << m_ticks << std::endl;
 	    getchar();
-	    return {Move::stay};
 	}
 
 	std::reverse(finalPath.begin(), finalPath.end());
 
-	// erase second half of the path if the search isn't finished
-	/*if(winner.coords() != target)
-	{
-	    finalPath.erase(finalPath.cbegin() + finalPath.size()/2, finalPath.cend());
-	}
-	*/
+	if(finalPath.size() == 0) finalPath.push_back(Move::stay);
 
 	// calculate time and reserve the coords it was traversing
-	//std::cout << "{ ";
+	std::cout << "{ ";
 	for(int i = 0; i < finalPath.size(); ++i)
 	{
-	    //std::cout << finalPath[i] << " ";
+	    std::cout << finalPath[i] << " ";
 	    // if it's waiting
-	    if(finalPath[i] == 4)
+	    if(finalPath[i] == Move::stay)
 	    {
-		reserve(curr.coords(), curr.t, 1);
-		curr.t += 1;
+		//std::cout << "wait reserve: "
+		reserve(curr.coords(), curr.t, wt);
+	        curr.t += wt;
 	    } 
 	    else
 	    {
 		PathCoord next = curr;
 		next.move(finalPath[i]);
+		
 		// if walking is possible
-
-		// if this step is made at the start of the window, specially dereserve idle reservation
-		if(curr.coords() == start && curr.t <= time + ws + ds &&
-		   isReserved(curr.coords(), curr.t, ws + ds) == -1)
-		{
-		    destroyReservation(curr.coords(), time);
-		}
-		    
-		if(isReserved(next.coords(), curr.t, ws) == 0)
+		if(!isBlocked(next.coords(), curr.t))
 		{
 		    reserve(curr.coords(), curr.t, ws);
 		    reserve(next.coords(), curr.t, ws);
@@ -580,26 +612,30 @@ std::vector<Move> Region::findPath (sf::Vector2i start, int time, sf::Vector2i t
 		}
 		else // otherwise dig (it has to be a legal move, cause it was checked before)
 		{
-		    if(!dereserve(next.coords(), 0, curr.t + ds)) std::cout << "ERROR IN NON-SPECIAL DERESERVE\n";
+		    // record that obstacle at these coords has been dug out at this time
+		    atCoords(m_obstacles, next.coords()) = curr.t + ds - 1;
+		    
 		    reserve(curr.coords(), curr.t, ws + ds);
 		    reserve(next.coords(), curr.t, ws + ds);
 		    next.t += ws + ds;
 		}
 		curr = next;
 	    }
-	    
-	    if(winner.coords() != target && curr.t - time >= m_rSetts->pathWindowSize/2)
+
+	    // if best path doesn't go all the way to destination, but has reached half the time window, cut the rest
+	    if(winner.coords() != target && curr.t - m_ticks >= m_rSetts->pathWindowSize/2)
 	    {
 		finalPath.erase(finalPath.cbegin()+i+1, finalPath.cend());
+		winner = curr;
 		break;
 	    }
-	    //if(i == finalPath.size()-1 && winner.coords() == target) reserve(winner.coords(), curr.t, -1);
-	    //std::cout << "}\n";
 	}
+	std::cout << "}\n";
     }
-    //else std::cout << "HE DIDN'T FIN MOVE" << std::endl;
+
+    //getchar();
     
-    return finalPath;
+    return std::make_pair(finalPath, winner);
 }
 
 /*
@@ -640,20 +676,26 @@ std::pair<std::vector<int>, int> findDiggingPath(sf::Vector2i start, int time, s
 
 void Region::requestPath(std::string id, sf::Vector2i start, sf::Vector2i target, int profIndex)
 {
-    if(start != target)
+    if(m_recordedAgents.find(id) == m_recordedAgents.end())
     {
-	int safe = m_rSetts->agentProfiles[profIndex].walking;
-	if(m_rSetts->agentProfiles[profIndex].digging > 0) safe += m_rSetts->agentProfiles[profIndex].digging;
-	
-	m_requests.insert(std::make_pair(id, std::make_tuple(start, target, profIndex)));
-	//printVector(start);
-	//std::cout << m_ticks << " " << safe << std::endl;
-	reserve(start, m_ticks, safe, false);
+	m_recordedAgents.insert(std::make_pair(id, std::make_tuple(start, m_ticks, profIndex)));
     }
     else
     {
-	reserve(start, m_ticks, m_rSetts->pathWindowSize);
+	if(std::get<0>(m_recordedAgents[id]) != start || std::get<1>(m_recordedAgents[id]) != m_ticks)
+	{
+	    printVector(std::get<0>(m_recordedAgents[id]), false);
+	    std::cout << std::get<1>(m_recordedAgents[id]) << "\n";
+
+	    printVector(start, false);
+	    std::cout << m_ticks << "\n";
+	    
+	    std::cout << "AGENT HAS BEEN TELEPORTED, INCOMPATIBLE WITH PROJECTION\n";
+	}
+	std::get<2>(m_recordedAgents[id]) = profIndex;
     }
+	
+    m_requests.insert(std::make_pair(id, std::make_tuple(start, target, profIndex)));
 }
 
 std::vector<Move> Region::getPath(std::string id)
@@ -670,10 +712,31 @@ std::vector<Move> Region::getPath(std::string id)
 
 bool Region::commitPaths()
 {
+    if(m_requests.size() > 0) std::cout << "NEW WINDOW\n";
+    
+    for(auto it = m_recordedAgents.begin(); it != m_recordedAgents.end(); ++it)
+    {
+	int safe = m_rSetts->agentProfiles[std::get<2>(it->second)].walking;
+	if(m_rSetts->agentProfiles[std::get<2>(it->second)].digging > 0)
+	{
+	    safe += m_rSetts->agentProfiles[std::get<2>(it->second)].digging;
+	}
+
+	if(!isReserved(std::get<0>(it->second), std::get<1>(it->second), safe))
+	{
+	    reserve(std::get<0>(it->second), std::get<1>(it->second), safe, false);
+	}
+    }
+    
     for(auto it = m_requests.begin(); it != m_requests.end(); ++it)
     {
-	m_paths[it->first] =
-	    findPath(std::get<0>(it->second), -1, std::get<1>(it->second), std::get<2>(it->second));
+	auto temp = findPath(std::get<0>(it->second), std::get<1>(it->second), std::get<2>(it->second));
+	m_paths[it->first] = temp.first;
+	    
+	std::get<0>(m_recordedAgents[it->first]) = temp.second.coords();
+	std::get<1>(m_recordedAgents[it->first]) = temp.second.t;
+
+	//isReserved(0, 0, 1, 1, true);
     }
 
     m_requests.clear();
@@ -681,19 +744,30 @@ bool Region::commitPaths()
 
 bool Region::tick(int ticksPassed)
 {
+    
+    //std::cout << "\n\n\n";
+    //for(auto it = m_reservations.begin(); it != m_reservations.end(); ++it)
+	//{
+//	std::cout <<"{" << it->x << " " << it->y << " " << it->from << ":" << it->to << "}\n";
+	//}
+    //getchar();
+    //std::cout << "\n\n\n";
+
+    
     m_ticks = ticksPassed;
 
-    auto found = m_toCleanAt.find(m_ticks);
-    while(found != m_toCleanAt.end())
+    auto found = m_toCleanAt.equal_range(m_ticks);
+    for(auto it = found.first; it != found.second; ++it)
     {
-	if(m_reservations.find(found->second) != m_reservations.end())
+	if(m_reservations.find(it->second) != m_reservations.end())
 	{
-	    m_reservations.erase(m_reservations.find(found->second));
+	    m_reservations.erase(m_reservations.find(it->second));
 	}
-	//else std::cout << "This dude was double here: " << found->second.x << " " << found->second.y << "\n";
-	m_toCleanAt.erase(found);
-	found = m_toCleanAt.find(m_ticks);
+	else std::cout << "This dude was double here: " << it->second.x << " " << it->second.y << "\n";
     }
+
+    m_toCleanAt.erase(found.first, found.second);
+    
     
     update();
 

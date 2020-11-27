@@ -135,12 +135,14 @@ class Region
     int m_ticks;
     
     // stores whether tile at pos 'x' and 'y' and from tick from' to tick 'to'; the value is -1 if it is undiggable, otherwise it's 1
-    std::map<Reservation, int, ReservationComparator> m_reservations;
+    std::set<Reservation, ReservationComparator> m_reservations;
+    std::vector< std::vector<int> > m_obstacles;
     std::vector< std::vector< std::vector< std::map<sf::Vector2i, int, Vector2iComparator> > > >
     m_naiveDistance;
     std::multimap<int, Reservation> m_toCleanAt;
     std::map<std::string, std::tuple<sf::Vector2i, sf::Vector2i, int>> m_requests;
     std::map<std::string, std::vector<Move>> m_paths;
+    std::map<std::string, std::tuple<sf::Vector2i, int, int>> m_recordedAgents;
 
     std::vector<sf::Vector2i> m_toUpdate;
     
@@ -148,21 +150,24 @@ class Region
 
     void update();
 
-    int isReserved(int x, int y, int from, int to);
+    bool isReserved(int x, int y, int from, int to, bool debug = false);
 	
-    int isReserved(sf::Vector2i coords, int from, int duration);
+    bool isReserved(sf::Vector2i coords, int from, int duration, bool debug = false);
 
+    bool isBlocked(sf::Vector2i coords, int from);
+    
     void reserve(sf::Vector2i coords, int from, int duration, bool cleanUp = true);
     
-    bool destroyReservation(sf::Vector2i coords, int from);
+    bool dereserve(sf::Vector2i coords, int from);
     
-    bool dereserve(sf::Vector2i coords, int from, int freeAt);
+    //bool dereserve(sf::Vector2i coords, int from, int freeAt);
 
     void calcNaiveDistance(sf::Vector2i from, sf::Vector2i startAt = sf::Vector2i(-1, -1));
     
     int getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int time);
 
-    std::vector<Move> findPath(sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
+    std::pair<std::vector<Move>, PathCoord>
+    findPath(sf::Vector2i start, sf::Vector2i target, int profileIndex);
 
     public:
     Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures);

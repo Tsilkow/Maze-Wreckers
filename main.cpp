@@ -54,7 +54,7 @@ int main()
 	    {10, nest},
 	    {2, terrace}}, 
 	{                            // agentProfiles
-	    {1, 16, -1},              // agentNoDigging
+	    {1, 16, -1},             // agentNoDigging
 	    {1, 16, 64},             // agentNormal
 	    {1, 24, 32}              // agentHeavy
 	},
@@ -102,7 +102,7 @@ int main()
     };
 
     sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");
-    window.setFramerateLimit(6);
+    window.setFramerateLimit(600);
     
     sf::View actionView(sf::Vector2f(425.f, 400.f), sf::Vector2f(850, 800));
     window.setView(actionView);
