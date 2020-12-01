@@ -561,6 +561,8 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 	}
     }
 
+    printVector(start, false);
+    std::cout << m_ticks << "\n";
     winner.print();
 
     {
@@ -584,13 +586,11 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 
 	std::reverse(finalPath.begin(), finalPath.end());
 
-	if(finalPath.size() == 0) finalPath.push_back(Move::stay);
+	//if(finalPath.size() == 0) finalPath.push_back(Move::stay);
 
 	// calculate time and reserve the coords it was traversing
-	std::cout << "{ ";
 	for(int i = 0; i < finalPath.size(); ++i)
 	{
-	    std::cout << finalPath[i] << " ";
 	    // if it's waiting
 	    if(finalPath[i] == Move::stay)
 	    {
@@ -630,8 +630,16 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 		break;
 	    }
 	}
-	std::cout << "}\n";
     }
+
+    std::cout << "{\n{ ";
+    for(int i = 0; i < finalPath.size(); ++i)
+    {
+	std::cout << finalPath[i] << " ";
+    }
+    std::cout << "},\n";
+    winner.print();
+    std::cout <<"}\n";
 
     //getchar();
     
@@ -716,6 +724,7 @@ bool Region::commitPaths()
     
     for(auto it = m_recordedAgents.begin(); it != m_recordedAgents.end(); ++it)
     {
+	// reserve safe amount of space, so that algorithm will acknowledge these agents, even if they are not moving
 	int safe = m_rSetts->agentProfiles[std::get<2>(it->second)].walking;
 	if(m_rSetts->agentProfiles[std::get<2>(it->second)].digging > 0)
 	{
@@ -735,6 +744,19 @@ bool Region::commitPaths()
 	    
 	std::get<0>(m_recordedAgents[it->first]) = temp.second.coords();
 	std::get<1>(m_recordedAgents[it->first]) = temp.second.t;
+
+	// if no path could be found, reserve safe amount of space
+	if(temp.first.size() == 0)
+	{
+	    int safe = m_rSetts->agentProfiles[std::get<2>(it->second)].walking;
+	    if(m_rSetts->agentProfiles[std::get<2>(it->second)].digging > 0)
+	    {
+		safe += m_rSetts->agentProfiles[std::get<2>(it->second)].digging;
+	    }
+	    
+	    reserve(std::get<0>(it->second), std::get<1>(m_recordedAgents[it->first]), safe, false);
+	    std::get<1>(m_recordedAgents[it->first]) += 1;
+	}
 
 	//isReserved(0, 0, 1, 1, true);
     }
