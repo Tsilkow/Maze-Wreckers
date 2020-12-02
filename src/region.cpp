@@ -54,7 +54,7 @@ bool PathHeuresticComparator::operator() (const PathCoord& a, const PathCoord& b
 };
 
 Region::Region(std::shared_ptr<RegionSettings>& rSetts,
-	       ResourceHolder<sf::Texture, std::string>& textures):
+	       ResourceHolder<sf::Texture, std::string>& textures, bool genMaze):
     m_rSetts(rSetts),
     m_ticks(0)
 {
@@ -67,7 +67,7 @@ Region::Region(std::shared_ptr<RegionSettings>& rSetts,
     
     m_states.texture = &textures.get("tileset");
     
-    generate();
+    generate(genMaze);
     
     for(int x = 0; x < m_rSetts->dimensions.x; ++x)
     {
@@ -102,7 +102,7 @@ Region::Region(std::shared_ptr<RegionSettings>& rSetts,
     }
 }
 
-void Region::generate()
+void Region::generate(bool genMaze)
 {
     m_data = std::vector< std::vector<int> >(m_rSetts->dimensions.x,
 					     std::vector<int>(m_rSetts->dimensions.y, 1));
@@ -110,7 +110,38 @@ void Region::generate()
 	(m_rSetts->agentProfiles.size(), std::vector< std::vector< std::map<sf::Vector2i, int, Vector2iComparator> > >
 	 (m_rSetts->dimensions.x, std::vector< std::map<sf::Vector2i, int, Vector2iComparator> >
 	  (m_rSetts->dimensions.y)));
-										       
+
+    //maze generation
+    if(genMaze)
+    {
+	std::vector<sf::Vector2i> toExpand;
+	std::vector<int> directions;
+	sf::Vector2i examined;
+	sf::Vector2i neighbour;
+	bool deadEnd;
+	 
+	toExpand.push_back(sf::Vector2i(0, 0));
+	while(toExpand.size() > 0)
+	{
+	    examined = toExpand.back();
+	    deadEnd = true;
+		  
+	    directions = RandomSequence(0, 3, 4);
+	    for(int j=0; j<4; ++j)
+	    {
+		neighbour = examined + getMove(directions[j]) * 2;
+		if(inBounds(neighbour) && atCoords(m_data, neighbour) == 1)
+		{
+		    deadEnd = false;
+		    toExpand.push_back(neighbour);
+		    atCoords(m_data, neighbour                        ) = 0;
+		    atCoords(m_data, examined + getMove(directions[j])) = 0;
+		    break;
+		}
+	    }
+	    if(deadEnd) toExpand.pop_back();
+	}
+    }										       
     
     // nest generation
     // TODO: inflexible amount of sides having nests
@@ -522,11 +553,11 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 		    {
 			// is it possible to walk there
 			bool nextWalk = (!isReserved(next.coords(), curr.t, ws) &&
-					 !isBlocked(next.coords(), curr.t));
+					 isWalkable(next.coords(), curr.t));
 		
 			// is it possible to dig there
 			bool nextDig = (ds != -1 && // can agent dig
-					isBlocked(next.coords(), curr.t) && // is there a place to dig
+					isDiggable(next.coords(), curr.t) &&
 					!isReserved(curr.coords(), curr.t, ws + ds) &&
 					!isReserved(next.coords(), curr.t, ws + ds));
 					
@@ -613,7 +644,7 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 		next.move(finalPath[i]);
 		
 		// if walking is possible
-		if(!isBlocked(next.coords(), curr.t))
+		if(isWalkable(next.coords(), curr.t))
 		{
 		    reserve(curr.coords(), curr.t, ws);
 		    reserve(next.coords(), curr.t, ws);
@@ -860,20 +891,25 @@ sf::Vector2i Region::getClosestNest(int allegiance, sf::Vector2i coords, int pro
     return result;
 }
 
-bool Region::isWalkable(sf::Vector2i coords)
+bool Region::isWalkable(sf::Vector2i coords, int time)
 {
-    if(inBounds(coords) && m_rSetts->tileTypes[atCoords(m_data, coords)].isWalkable)
+    if(time == -1) time = m_ticks;
+    if(inBounds(coords))
     {
-	return true;
+	if     (time == m_ticks) return (m_rSetts->tileTypes[atCoords(m_data, coords)].isWalkable);
+	else if(time >  m_ticks) return (atCoords(m_obstacles, coords) != -100 &&
+					 atCoords(m_obstacles, coords) <  time);
     }
     return false;
 }
 
-bool Region::isDiggable(sf::Vector2i coords)
+bool Region::isDiggable(sf::Vector2i coords, int time)
 {
-    if(inBounds(coords) && m_rSetts->tileTypes[atCoords(m_data, coords)].isDiggable)
+    if(time == -1) time = m_ticks;
+    if(inBounds(coords))
     {
-	return true;
+	if     (time == m_ticks) return m_rSetts->tileTypes[atCoords(m_data, coords)].isDiggable;
+	else if(time >  m_ticks) return (atCoords(m_obstacles, coords) == -100);
     }
     return false;
 }

@@ -35,6 +35,8 @@ int randomI(int min, int max);
 
 int randomIWeights(std::vector<int> weights);
 
+std::vector<int> RandomSequence(int min, int max, int length);
+
 int distance(sf::Vector2i);
 
 float determineLightness(sf::Color input);

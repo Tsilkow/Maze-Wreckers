@@ -2,22 +2,22 @@
 
 
 Simulation::Simulation(std::shared_ptr<RegionSettings>& rSetts, std::shared_ptr<AgentSettings>& aSetts,
-		       ResourceHolder<sf::Texture, std::string>& textures,
-		       std::vector<std::pair<sf::Vector2i, sf::Vector2i>> test):
+		       ResourceHolder<sf::Texture, std::string>& textures, Test test):
     m_rSetts(rSetts),
     m_aSetts(aSetts),
-    m_region(rSetts, textures),
-    m_ticks(0),
-    m_test(test)
+    m_test(test),
+    m_region(rSetts, textures, test.genMaze),
+    m_ticks(0)
 {
     m_shr_region = std::make_shared<Region>(m_region);
 
-    for(int i = 0; i < m_test.size(); ++i)
+    for(int i = 0; i < m_test.agents.size(); ++i)
     {
-	m_shr_region->digOut(m_test[i].first);
-	m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie"+std::to_string(i), 0, 0,
-			      m_test[i].first);
-	m_agents.back().setDestination(m_test[i].second);
+	m_shr_region->digOut(std::get<0>(m_test.agents[i]));
+	m_shr_region->digOut(std::get<1>(m_test.agents[i]));
+	m_agents.emplace_back(m_aSetts, m_shr_region, textures, "auntie"+std::to_string(i), 0,
+			      std::get<2>(m_test.agents[i]), std::get<0>(m_test.agents[i]));
+	m_agents.back().setDestination(std::get<1>(m_test.agents[i]));
     }
 }
 
@@ -39,10 +39,10 @@ bool Simulation::tick()
     
     m_shr_region->tick(m_ticks);
 
-    for(int i = 0; i < m_test.size(); ++i)
+    for(int i = 0; i < m_agents.size(); ++i)
     {
-	if(m_agents[i].getCoords() != m_test[i].second) break;
-	if(i == m_test.size()-1) return false;
+	if(m_agents[i].getCoords() != std::get<1>(m_test.agents[i])) break;
+	if(i == m_agents.size()-1) return false;
     }
     //std::cout << m_ticks << std::endl;
 

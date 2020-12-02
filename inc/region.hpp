@@ -149,7 +149,7 @@ class Region
 
     std::vector<sf::Vector2i> m_toUpdate;
     
-    void generate();
+    void generate(bool genMaze);
 
     void update();
 
@@ -173,7 +173,8 @@ class Region
     findPath(int searchUpto, sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
 
     public:
-    Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures);
+    Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures,
+	   bool genMaze);
 
     bool registerAgent(std::string id, sf::Vector2i start, int profileIndex);
     
@@ -194,9 +195,9 @@ class Region
     
     bool inBounds(sf::Vector2i coords);
     
-    bool isWalkable(sf::Vector2i coords);
+    bool isWalkable(sf::Vector2i coords, int time = -1);
 
-    bool isDiggable(sf::Vector2i coords);
+    bool isDiggable(sf::Vector2i coords, int time = -1);
 
     bool isYankable(sf::Vector2i coords);
 };

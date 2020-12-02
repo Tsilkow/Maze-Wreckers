@@ -78,6 +78,24 @@ int randomIWeights(std::vector<int> weights)
     return weights.size()-1; // just in case
 }
 
+std::vector<int> RandomSequence(int min, int max, int length)
+{
+    std::vector<int> allPossibilities;
+    std::vector<int> result;
+    int element;
+    for(int i=min; i<=max; ++i)
+    {
+	allPossibilities.push_back(i);
+    }
+    for(int i=0; i<length; ++i)
+    {
+	element = randomI(0, allPossibilities.size()-1);
+	result.push_back(allPossibilities[element]);
+	allPossibilities.erase(allPossibilities.begin() + element);
+    }
+    return result;
+}
+
 int distance(sf::Vector2i relation)
 {
     return std::abs(relation.x) + std::abs(relation.y);
