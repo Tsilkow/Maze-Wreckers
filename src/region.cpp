@@ -502,7 +502,7 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 	if(!isReserved(curr.coords(), curr.t, ws))
 	{
 	    // if this path has reached destination or edge of the time window, compare it to the best so far
-	    if(curr.coords() == target || curr.t - time >= m_rSetts->forseeingLimit)
+	    if(/*curr.coords() == target || */curr.t - time >= m_rSetts->forseeingLimit)
 	    {
 		if(curr.h < winner.h || winner.t == time)
 		{
