@@ -54,11 +54,12 @@ int main()
 	    {10, nest},
 	    {2, terrace}}, 
 	{                            // agentProfiles
-	    {1, 16, -1},             // agentNoDigging
-	    {1, 16, 64},             // agentNormal
-	    {1, 24, 32}              // agentHeavy
+	    {1, 16, -1, -1},         // agentNoDigging
+	    {1, 16, 64, -1},         // agentNormal
+	    {1, 24, 32, -1}          // agentHeavy
 	},
-	640                           // pathWindowSize
+	300,                         // pathWindowSize
+	600                          // forseeingLimit
     };
     shared_ptr<RegionSettings> shr_rSetts = make_shared<RegionSettings>(rSetts);
 
@@ -84,7 +85,7 @@ int main()
 	{
 	    {sf::Vector2i( 0,  0), sf::Vector2i(48, 48)},
 	    {sf::Vector2i( 1,  0), sf::Vector2i(49, 48)},
-	    {sf::Vector2i( 1,  1), sf::Vector2i(49, 49)},
+	    {sf::Vector2i( 1,  1), sf::Vector2i(49, 47)},
 	    {sf::Vector2i( 0,  1), sf::Vector2i(48, 49)}
 	},
 	{
@@ -98,7 +99,13 @@ int main()
 	    {sf::Vector2i(25, 24), sf::Vector2i( 0, 49)},
 	    {sf::Vector2i(25, 25), sf::Vector2i( 0,  0)},
 	    {sf::Vector2i(24, 25), sf::Vector2i(49,  0)}
-	}
+	},
+	{
+	    {sf::Vector2i( 0,  0), sf::Vector2i(48, 48)},
+	    {sf::Vector2i( 1,  0), sf::Vector2i(49, 48)},
+	    {sf::Vector2i( 1,  1), sf::Vector2i(49, 49)},
+	    {sf::Vector2i( 0,  1), sf::Vector2i(48, 49)}
+	},
     };
 
     sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");

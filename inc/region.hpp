@@ -18,6 +18,7 @@ struct AgentProfile
     int waiting;
     int walking;
     int digging;
+    int safePeriod;
 };
 
 struct TileType
@@ -42,6 +43,7 @@ struct RegionSettings
     // 10 is nest
     std::vector<AgentProfile> agentProfiles;
     int pathWindowSize;
+    int forseeingLimit;
 };
 
 struct Vector2iComparator
@@ -55,6 +57,7 @@ struct Reservation
     int y;
     int from;
     int to;
+    bool permanent;
 };
 
 struct PathCoord
@@ -140,7 +143,7 @@ class Region
     std::vector< std::vector< std::vector< std::map<sf::Vector2i, int, Vector2iComparator> > > >
     m_naiveDistance;
     std::multimap<int, Reservation> m_toCleanAt;
-    std::map<std::string, std::tuple<sf::Vector2i, sf::Vector2i, int>> m_requests;
+    std::vector<std::tuple<std::string, sf::Vector2i, int>> m_requests;
     std::map<std::string, std::vector<Move>> m_paths;
     std::map<std::string, std::tuple<sf::Vector2i, int, int>> m_recordedAgents;
 
@@ -167,16 +170,18 @@ class Region
     int getHeurestic(int profileIndex, sf::Vector2i at, sf::Vector2i to, int time);
 
     std::pair<std::vector<Move>, PathCoord>
-    findPath(sf::Vector2i start, sf::Vector2i target, int profileIndex);
+    findPath(int searchUpto, sf::Vector2i start, int time, sf::Vector2i target, int profileIndex);
 
     public:
     Region(std::shared_ptr<RegionSettings>& rSetts, ResourceHolder<sf::Texture, std::string>& textures);
 
-    void requestPath(std::string id, sf::Vector2i start, sf::Vector2i target, int profIndex);
+    bool registerAgent(std::string id, sf::Vector2i start, int profileIndex);
+    
+    bool requestPath(std::string id, sf::Vector2i target, int profIndex);
 
     std::vector<Move> getPath(std::string id);
 
-    bool commitPaths();
+    void commitPaths();
 
     bool digOut(sf::Vector2i coords);
     

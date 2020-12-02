@@ -15,6 +15,8 @@ Agent::Agent(std::shared_ptr<AgentSettings>& aSetts, std::shared_ptr<Region>& wo
     m_currAction(Action::wait),
     m_actionProgress(0)
 {
+    m_world->registerAgent(getId(), m_coords, m_aSetts->agentTypes[m_type].profileIndex);
+    
     m_mask.push_back(m_coords);
     m_representation.setTexture(textures.get(m_aSetts->agentTypes[m_type].texture));
     
@@ -105,7 +107,7 @@ bool Agent::manifest()
 {
     if(m_actionProgress == 0 && m_path.size() == 0)
     {
-	m_world->requestPath(getId(), m_coords, m_destination, m_aSetts->agentTypes[m_type].profileIndex);
+	m_world->requestPath(getId(), m_destination, m_aSetts->agentTypes[m_type].profileIndex);
 	return true;
     }
     return false;
