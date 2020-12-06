@@ -44,7 +44,7 @@ int main()
 
     RegionSettings rSetts =
     {
-	sf::Vector2f(50, 50),        // dimensions
+	sf::Vector2f(51, 51),        // dimensions
 	16,                          // tileSize
 	16,                          // texTileSize
 	4,                           // nestTotal
@@ -84,17 +84,24 @@ int main()
     {
 	{
 	    true,
-	    {{sf::Vector2i( 0,  0), sf::Vector2i(48, 48), 0},
-	     {sf::Vector2i( 1,  0), sf::Vector2i(49, 48), 0},
-	     {sf::Vector2i( 1,  1), sf::Vector2i(49, 49), 0},
-	     {sf::Vector2i( 0,  1), sf::Vector2i(48, 49), 0}}
+	    {{sf::Vector2i( 1,  1), sf::Vector2i(49, 49), 1},
+	     {sf::Vector2i( 2,  1), sf::Vector2i(48, 49), 1},
+	     {sf::Vector2i( 3,  1), sf::Vector2i(47, 49), 1},
+	     {sf::Vector2i( 4,  1), sf::Vector2i(46, 49), 1}}
+	},
+	{
+	    true,
+	    {{sf::Vector2i( 1,  1), sf::Vector2i(49, 49), 0},
+	     {sf::Vector2i( 2,  1), sf::Vector2i(48, 49), 0},
+	     {sf::Vector2i( 3,  1), sf::Vector2i(47, 49), 0},
+	     {sf::Vector2i( 4,  1), sf::Vector2i(46, 49), 0}}
 	},
         {
 	    false,
-	    {{sf::Vector2i( 0,  0), sf::Vector2i(48, 48), 0},
-	     {sf::Vector2i( 1,  0), sf::Vector2i(49, 48), 0},
-	     {sf::Vector2i( 1,  1), sf::Vector2i(49, 49), 0},
-	     {sf::Vector2i( 0,  1), sf::Vector2i(48, 49), 0}}
+	    {{sf::Vector2i( 0,  0), sf::Vector2i(49, 49), 0},
+	     {sf::Vector2i( 1,  0), sf::Vector2i(50, 49), 0},
+	     {sf::Vector2i( 1,  1), sf::Vector2i(50, 50), 0},
+	     {sf::Vector2i( 0,  1), sf::Vector2i(49, 50), 0}}
 	},
 	{
 	    false,
@@ -105,17 +112,17 @@ int main()
 	},
 	{
 	    false,
-	    {{sf::Vector2i(24, 24), sf::Vector2i(49, 49), 0},
-	     {sf::Vector2i(25, 24), sf::Vector2i( 0, 49), 0},
-	     {sf::Vector2i(25, 25), sf::Vector2i( 0,  0), 0},
-	     {sf::Vector2i(24, 25), sf::Vector2i(49,  0), 0}}
+	    {{sf::Vector2i(25, 25), sf::Vector2i(50, 50), 0},
+	     {sf::Vector2i(26, 25), sf::Vector2i( 0, 50), 0},
+	     {sf::Vector2i(26, 26), sf::Vector2i( 0,  0), 0},
+	     {sf::Vector2i(25, 26), sf::Vector2i(50,  0), 0}}
 	}
     };
 
-    sf::RenderWindow window(sf::VideoMode(850, 800), "Maze Wreckers");
-    window.setFramerateLimit(60);
+    sf::RenderWindow window(sf::VideoMode(816, 816), "Maze Wreckers");
+    window.setFramerateLimit(6000);
     
-    sf::View actionView(sf::Vector2f(425.f, 400.f), sf::Vector2f(850, 800));
+    sf::View actionView(sf::Vector2f(408.f, 408.f), sf::Vector2f(816, 816));
     window.setView(actionView);
 
     std::shared_ptr<Simulation> simulation(nullptr);

@@ -120,7 +120,7 @@ void Region::generate(bool genMaze)
 	sf::Vector2i neighbour;
 	bool deadEnd;
 	 
-	toExpand.push_back(sf::Vector2i(0, 0));
+	toExpand.push_back(sf::Vector2i(1, 1));
 	while(toExpand.size() > 0)
 	{
 	    examined = toExpand.back();
@@ -518,8 +518,6 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
     int ws = m_rSetts->agentProfiles[profileIndex].walking; // shorthand for walking speed
     int ds = m_rSetts->agentProfiles[profileIndex].digging; // shorthand for digging speed
 
-    m_targets.emplace_back(target); // add destination to the list of tracked targets
-    calcNaiveDistance(target); // calculate (or make sure it's already calculated) naive distance
     winner.h = getHeurestic(profileIndex, start, target, time);
     potenPaths.insert(winner);
     directions[winner] = std::make_pair(Move::stay, 0);
@@ -533,13 +531,9 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 	if(!isReserved(curr.coords(), curr.t, ws))
 	{
 	    // if this path has reached destination or edge of the time window, compare it to the best so far
-	    if(/*curr.coords() == target || */curr.t - time >= m_rSetts->forseeingLimit)
+	    if(/*curr.coords() == target ||*/ curr.t - time >= m_rSetts->forseeingLimit)
 	    {
-		if(curr.h < winner.h || winner.t == time)
-		{
-		    winner = curr;
-		    std::cout << "NOJE VINNER\n";
-		}
+		if(curr.h < winner.h || winner.t == time) winner = curr;
 	    }
 	    else // if the path hasn't reached anything, go further
 	    {
@@ -601,9 +595,9 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 	}
     }
 
-    printVector(start, false);
-    std::cout << time << "\n";
-    winner.print();
+    //printVector(start, false);
+    //std::cout << time << "\n";
+    //winner.print();
 
     {
 	PathCoord curr = winner;
@@ -663,7 +657,7 @@ std::pair<std::vector<Move>, PathCoord> Region::findPath
 	    }
 
 	    // if best path doesn't go all the way to destination, but has reached half the time window, cut the rest
-	    if(winner.coords() != target && curr.t - time >= searchUpTo)
+	    if(/*winner.coords() != target && */curr.t >= searchUpTo)
 	    {
 		finalPath.erase(finalPath.cbegin()+i+1, finalPath.cend());
 		winner = curr;
@@ -727,6 +721,7 @@ bool Region::registerAgent(std::string id, sf::Vector2i start, int profileIndex)
     if(m_recordedAgents.find(id) == m_recordedAgents.end())
     {
 	m_recordedAgents.insert(std::make_pair(id, std::make_tuple(start, m_ticks, profileIndex)));
+	std::cout << "REGISTERED " << id << "\n";
 	return true;
     }
     
@@ -739,8 +734,17 @@ bool Region::requestPath(std::string id, sf::Vector2i target, int profIndex)
     if(m_recordedAgents.find(id) != m_recordedAgents.end())
     {
 	std::get<2>(m_recordedAgents[id]) = profIndex;
-	m_requests.push_back(std::make_tuple(id, target, profIndex));
-	return true;
+
+	m_targets.emplace_back(target); // add destination to the list of tracked targets
+	calcNaiveDistance(target); // calculate (or make sure it's already calculated) naive distance
+
+	// if there's path, even without considering other agents, skip the request
+	if(atCoords(m_naiveDistance[profIndex], std::get<0>(m_recordedAgents[id])).find(target) !=
+	   atCoords(m_naiveDistance[profIndex], std::get<0>(m_recordedAgents[id])).end())
+	{
+	    m_requests.emplace_back(id, target, profIndex);
+	    return true;
+	}
     }
 
     return false;
@@ -762,20 +766,23 @@ void Region::commitPaths()
 {
     int windowEnd = (m_ticks / m_rSetts->pathWindowSize + 1) * m_rSetts->pathWindowSize;
 
-    if(m_ticks % m_rSetts->pathWindowSize == 0) std::cout << "NEW WINDOW (" << windowEnd << ")\n";
+    if(m_ticks % m_rSetts->pathWindowSize == 0) std::cout << "NEW WINDOW (" << windowEnd << ")=========================================================================\n";
 
     // reserve safe amount of space, so that algorithm will acknowledge all agents, even if they are not moving
     for(auto it = m_recordedAgents.begin(); it != m_recordedAgents.end(); ++it)
     {
-	int safe = m_rSetts->agentProfiles[std::get<2>(it->second)].safePeriod;
-
-	if(!isReserved(std::get<0>(it->second), std::get<1>(it->second), safe))
+	if(std::get<1>(it->second) < windowEnd)
 	{
-	    reserve(std::get<0>(it->second), std::get<1>(it->second), safe, false);
+	    reserve(std::get<0>(it->second), std::get<1>(it->second),
+		    windowEnd - std::get<1>(it->second), false);
+	    std::cout << "RESERVED FOR " << it->first << "\n";
+	}
+	
+	if(m_ticks % m_rSetts->pathWindowSize == 0)
+	{
+	    std::cout << it->first << ": " << std::get<1>(it->second) << "\n";
 	}
     }
-    
-    
 
     // go through all the requests and execute those that are within this window
     for(auto it = m_requests.begin(); it != m_requests.end(); ++it)
@@ -788,8 +795,6 @@ void Region::commitPaths()
 	    // if it doesn't have a path through the entire window
 	    if(std::get<1>(agent) < windowEnd)
 	    {
-		int safe = m_rSetts->agentProfiles[std::get<2>(agent)].safePeriod;
-
 		// dereserving safe buffor
 		dereserve(std::get<0>(agent), std::get<1>(agent));
 		
@@ -805,11 +810,18 @@ void Region::commitPaths()
 		std::cout << std::get<0>(*it) << " " << std::get<1>(agent) << "\n";
 
 		// reserving safe buffor
-		reserve(std::get<0>(agent), std::get<1>(agent), safe, false);
+		
+		if(std::get<1>(agent) < windowEnd)
+		{
+		    // reserve to the end of current window
+		    reserve(std::get<0>(agent), std::get<1>(agent),
+			    windowEnd - std::get<1>(agent));
+		}
 	    }
 	}	
     }
 
+    /*
     // adjust the reservations, if some of the agents don't have them done to the end of the window
     for(auto it = m_recordedAgents.begin(); it != m_recordedAgents.end(); ++it)
     {
@@ -827,7 +839,7 @@ void Region::commitPaths()
 	    // ... and then the buffor above that
 	    reserve(std::get<0>(it->second), windowEnd, safe, false);
 	}
-    }
+    }*/
 }
 
 bool Region::tick(int ticksPassed)
